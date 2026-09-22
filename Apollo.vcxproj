@@ -230,6 +230,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <ClCompile>
+      <PreprocessorDefinitions>VK_USE_PLATFORM_WIN32_KHR;VULKAN_HPP_NO_EXCEPTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -275,7 +276,7 @@
   </ItemDefinitionGroup>
   <Target Name="ValidateVulkanSdk" BeforeTargets="ClCompile" Condition="'$(Platform)'=='x64'">
     <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for x64 builds." />
-    <Error Condition="!Exists('$(VULKAN_SDK)\Include\vulkan\vulkan.h')" Text="Vulkan SDK headers were not found under VULKAN_SDK." />
+    <Error Condition="!Exists('$(VULKAN_SDK)\Include\vulkan\vulkan.hpp')" Text="Vulkan-Hpp headers were not found under VULKAN_SDK." />
     <Error Condition="!Exists('$(VULKAN_SDK)\Lib\vulkan-1.lib')" Text="Vulkan SDK import library was not found under VULKAN_SDK." />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

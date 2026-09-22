@@ -6,7 +6,7 @@
 
 #include "Platform/Windows/WindowsWindow.hpp"
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 namespace apollo::render::vulkan
 {
@@ -28,16 +28,16 @@ namespace apollo::render::vulkan
     [[nodiscard]] bool         IsValidationEnabled() const noexcept;
 
   private:
-    VkInstance               m_Instance{};
-    VkDebugUtilsMessengerEXT m_DebugMessenger{};
-    VkSurfaceKHR             m_Surface{};
-    VkPhysicalDevice         m_PhysicalDevice{};
-    VkDevice                 m_Device{};
-    VkQueue                  m_GraphicsQueue{};
-    VkQueue                  m_PresentQueue{};
-    uint32_t                 m_GraphicsFamily{};
-    uint32_t                 m_PresentFamily{};
-    char                     m_AdapterName[ VK_MAX_PHYSICAL_DEVICE_NAME_SIZE ]{};
-    bool                     m_ValidationEnabled{};
+    vk::Instance               m_Instance{};
+    vk::DebugUtilsMessengerEXT m_DebugMessenger{};
+    vk::SurfaceKHR             m_Surface{};
+    vk::PhysicalDevice         m_PhysicalDevice{};
+    vk::Device                 m_Device{};
+    vk::Queue                  m_GraphicsQueue{};
+    vk::Queue                  m_PresentQueue{};
+    uint32_t                   m_GraphicsFamily{};
+    uint32_t                   m_PresentFamily{};
+    char                       m_AdapterName[ VK_MAX_PHYSICAL_DEVICE_NAME_SIZE ]{};
+    bool                       m_ValidationEnabled{};
   };
 } // namespace apollo::render::vulkan
