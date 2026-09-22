@@ -28,6 +28,14 @@ namespace apollo::render::vulkan
     [[nodiscard]] const char * GetAdapterName() const noexcept;
     [[nodiscard]] bool         IsValidationEnabled() const noexcept;
 
+    [[nodiscard]] vk::PhysicalDevice GetPhysicalDevice() const noexcept;
+    [[nodiscard]] vk::Device         GetDevice() const noexcept;
+    [[nodiscard]] vk::SurfaceKHR     GetSurface() const noexcept;
+    [[nodiscard]] vk::Queue          GetGraphicsQueue() const noexcept;
+    [[nodiscard]] vk::Queue          GetPresentQueue() const noexcept;
+    [[nodiscard]] u32                GetGraphicsFamily() const noexcept;
+    [[nodiscard]] u32                GetPresentFamily() const noexcept;
+
   private:
     [[nodiscard]] bool CreateInstance() noexcept;
     [[nodiscard]] bool CreateDebugMessenger() noexcept;

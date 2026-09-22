@@ -5,7 +5,7 @@
 #include "Platform/Platform.hpp"
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
-  #include <cstdio>
+  #include "Render/RenderTypes.hpp"
 #endif
 
 namespace apollo
@@ -34,19 +34,74 @@ namespace apollo
 #if defined( APOLLO_PLATFORM_WINDOWS )
     while ( !m_Window.IsCloseRequested() )
     {
-      if ( !m_Window.WaitForEvent() )
+      m_Window.PumpEvents();
+      if ( m_Window.IsCloseRequested() )
       {
-        diagnostics::Write( diagnostics::Level::Error, "Windows message pump failed." );
-        Shutdown();
-        return ApplicationExitStatus::PlatformFailure;
+        break;
       }
 
       platform::ClientExtent extent{};
       if ( m_Window.ConsumeResize( extent ) )
       {
-        char size[ 48 ]{};
-        std::snprintf( size, sizeof( size ), "%u x %u", extent.width, extent.height );
-        diagnostics::Write( diagnostics::Level::Information, "Client size: ", size );
+        if ( extent.width == 0 || extent.height == 0 )
+        {
+          m_Presenter.Shutdown();
+          m_PresentationReady = false;
+        }
+        else if ( const render::Result resized = RecreatePresentation( extent );
+                  resized != render::Result::Success && resized != render::Result::SurfaceUnavailable )
+        {
+          diagnostics::Write( diagnostics::Level::Error, "Vulkan presentation resize failed." );
+          Shutdown();
+          return ApplicationExitStatus::PlatformFailure;
+        }
+      }
+
+      extent = m_Window.GetClientExtent();
+      if ( extent.width == 0 || extent.height == 0 )
+      {
+        if ( !m_Window.WaitForEvent() )
+        {
+          diagnostics::Write( diagnostics::Level::Error, "Windows message pump failed." );
+          Shutdown();
+          return ApplicationExitStatus::PlatformFailure;
+        }
+        continue;
+      }
+
+      if ( !m_PresentationReady )
+      {
+        const render::Result recovered = RecreatePresentation( extent );
+        if ( recovered != render::Result::Success && recovered != render::Result::SurfaceUnavailable )
+        {
+          diagnostics::Write( diagnostics::Level::Error, "Vulkan presentation recovery failed." );
+          Shutdown();
+          return ApplicationExitStatus::PlatformFailure;
+        }
+        if ( !m_PresentationReady )
+        {
+          Sleep( 16 );
+          continue;
+        }
+      }
+
+      const render::Result frame = m_Presenter.PresentClear( { 0.08f, 0.12f, 0.20f, 1.0f } );
+      if ( frame == render::Result::SurfaceOutOfDate )
+      {
+        const render::Result recovered = RecreatePresentation( extent );
+        if ( recovered != render::Result::Success && recovered != render::Result::SurfaceUnavailable )
+        {
+          diagnostics::Write( diagnostics::Level::Error, "Vulkan presentation recovery failed." );
+          Shutdown();
+          return ApplicationExitStatus::PlatformFailure;
+        }
+        continue;
+      }
+      if ( frame != render::Result::Success )
+      {
+        diagnostics::Write( diagnostics::Level::Error, "Vulkan presentation failed." );
+        Shutdown();
+        return ApplicationExitStatus::PlatformFailure;
       }
     }
 #endif
@@ -77,6 +132,14 @@ namespace apollo
       diagnostics::Write( diagnostics::Level::Error, "Vulkan context initialization failed." );
       return false;
     }
+    const platform::ClientExtent extent = m_Window.GetClientExtent();
+    if ( !m_Swapchain.Initialize( m_Vulkan, { extent.width, extent.height } ) ||
+         !m_Presenter.Initialize( m_Vulkan, m_Swapchain ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Vulkan presentation initialization failed." );
+      return false;
+    }
+    m_PresentationReady = true;
 #endif
 
     m_State = State::Initialized;
@@ -94,6 +157,9 @@ namespace apollo
     m_State = State::ShuttingDown;
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
+    m_PresentationReady = false;
+    m_Presenter.Shutdown();
+    m_Swapchain.Shutdown();
     m_Vulkan.Shutdown();
     m_Window.Destroy();
 #endif
@@ -101,4 +167,24 @@ namespace apollo
     diagnostics::Write( diagnostics::Level::Information, "Shutdown complete." );
     m_State = State::Stopped;
   }
+
+#if defined( APOLLO_PLATFORM_WINDOWS )
+  render::Result Application::RecreatePresentation( platform::ClientExtent extent ) noexcept
+  {
+    m_Presenter.Shutdown();
+    m_PresentationReady = false;
+
+    const render::Result resized = m_Swapchain.Resize( { extent.width, extent.height } );
+    if ( resized != render::Result::Success )
+    {
+      return resized;
+    }
+    if ( !m_Presenter.Initialize( m_Vulkan, m_Swapchain ) )
+    {
+      return render::Result::Failure;
+    }
+    m_PresentationReady = true;
+    return render::Result::Success;
+  }
+#endif
 } // namespace apollo

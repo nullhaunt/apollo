@@ -14,7 +14,6 @@
 #endif
 #include <Windows.h>
 
-
 namespace apollo::platform
 {
   struct ClientExtent
@@ -39,6 +38,7 @@ namespace apollo::platform
 
     // Waits for and dispatches one message. False indicates GetMessage failed.
     [[nodiscard]] bool         WaitForEvent() noexcept;
+    void                       PumpEvents() noexcept;
     [[nodiscard]] bool         IsCloseRequested() const noexcept;
     [[nodiscard]] bool         ConsumeResize( ClientExtent & extent ) noexcept;
     [[nodiscard]] ClientExtent GetClientExtent() const noexcept;

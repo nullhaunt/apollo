@@ -242,4 +242,39 @@ namespace apollo::render::vulkan
   {
     return m_ValidationEnabled;
   }
+
+  vk::PhysicalDevice VulkanContext::GetPhysicalDevice() const noexcept
+  {
+    return m_PhysicalDevice;
+  }
+
+  vk::Device VulkanContext::GetDevice() const noexcept
+  {
+    return m_Device;
+  }
+
+  vk::SurfaceKHR VulkanContext::GetSurface() const noexcept
+  {
+    return m_Surface;
+  }
+
+  vk::Queue VulkanContext::GetGraphicsQueue() const noexcept
+  {
+    return m_GraphicsQueue;
+  }
+
+  vk::Queue VulkanContext::GetPresentQueue() const noexcept
+  {
+    return m_PresentQueue;
+  }
+
+  u32 VulkanContext::GetGraphicsFamily() const noexcept
+  {
+    return m_GraphicsFamily;
+  }
+
+  u32 VulkanContext::GetPresentFamily() const noexcept
+  {
+    return m_PresentFamily;
+  }
 } // namespace apollo::render::vulkan

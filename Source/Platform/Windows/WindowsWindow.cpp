@@ -133,6 +133,21 @@ namespace apollo::platform
     return true;
   }
 
+  void WindowsWindow::PumpEvents() noexcept
+  {
+    MSG message{};
+    while ( PeekMessageW( &message, nullptr, 0, 0, PM_REMOVE ) )
+    {
+      if ( message.message == WM_QUIT )
+      {
+        m_CloseRequested = true;
+        return;
+      }
+      TranslateMessage( &message );
+      DispatchMessageW( &message );
+    }
+  }
+
   bool WindowsWindow::IsCloseRequested() const noexcept
   {
     return m_CloseRequested;

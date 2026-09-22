@@ -5,6 +5,8 @@
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Platform/Windows/WindowsWindow.hpp"
   #include "Render/Vulkan/VulkanContext.hpp"
+  #include "Render/Vulkan/VulkanPresenter.hpp"
+  #include "Render/Vulkan/VulkanSwapchain.hpp"
 #endif
 
 namespace apollo
@@ -43,12 +45,18 @@ namespace apollo
 
     [[nodiscard]] bool Initialize() noexcept;
     void               Shutdown() noexcept;
+#if defined( APOLLO_PLATFORM_WINDOWS )
+    [[nodiscard]] render::Result RecreatePresentation( platform::ClientExtent extent ) noexcept;
+#endif
 
     State m_State{ State::Created };
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
-    platform::WindowsWindow       m_Window{};
-    render::vulkan::VulkanContext m_Vulkan{};
+    platform::WindowsWindow         m_Window{};
+    render::vulkan::VulkanContext   m_Vulkan{};
+    render::vulkan::VulkanSwapchain m_Swapchain{};
+    render::vulkan::VulkanPresenter m_Presenter{};
+    bool                            m_PresentationReady{};
 #endif
   };
 } // namespace apollo
