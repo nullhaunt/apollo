@@ -72,6 +72,11 @@ namespace apollo
       return false;
     }
     diagnostics::Write( diagnostics::Level::Information, "Windows window opened." );
+    if ( !m_Vulkan.Initialize( m_Window.GetNativeHandle() ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Vulkan context initialization failed." );
+      return false;
+    }
 #endif
 
     m_State = State::Initialized;
@@ -89,6 +94,7 @@ namespace apollo
     m_State = State::ShuttingDown;
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
+    m_Vulkan.Shutdown();
     m_Window.Destroy();
 #endif
 

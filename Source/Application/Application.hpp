@@ -4,6 +4,7 @@
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Platform/Windows/WindowsWindow.hpp"
+  #include "Render/Vulkan/VulkanContext.hpp"
 #endif
 
 namespace apollo
@@ -46,7 +47,8 @@ namespace apollo
     State m_State{ State::Created };
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
-    platform::WindowsWindow m_Window{};
+    platform::WindowsWindow       m_Window{};
+    render::vulkan::VulkanContext m_Vulkan{};
 #endif
   };
 } // namespace apollo

@@ -41,6 +41,9 @@
     <ClCompile Include="Source\Platform\Windows\WindowsWindow.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Source\Render\Vulkan\VulkanContext.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Application\Application.hpp" />
@@ -52,6 +55,7 @@
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />
     <ClInclude Include="Source\Render\RenderDevice.hpp" />
     <ClInclude Include="Source\Render\RenderTypes.hpp" />
+    <ClInclude Include="Source\Render\Vulkan\VulkanContext.hpp" />
     <ClInclude Include="Source\World\WorldPosition.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -224,6 +228,15 @@
       <AdditionalDependencies>user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|NX64'">
     <Link>
       <FinalizeMetaSource>$(ProjectDir)Application.aarch64.lp64.nmeta</FinalizeMetaSource>
@@ -260,6 +273,11 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
+  <Target Name="ValidateVulkanSdk" BeforeTargets="ClCompile" Condition="'$(Platform)'=='x64'">
+    <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for x64 builds." />
+    <Error Condition="!Exists('$(VULKAN_SDK)\Include\vulkan\vulkan.h')" Text="Vulkan SDK headers were not found under VULKAN_SDK." />
+    <Error Condition="!Exists('$(VULKAN_SDK)\Lib\vulkan-1.lib')" Text="Vulkan SDK import library was not found under VULKAN_SDK." />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
