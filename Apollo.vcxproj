@@ -37,6 +37,7 @@
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Platform\Diagnostics.cpp" />
+    <ClCompile Include="Source\Render\RenderContracts.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Application\Application.hpp" />
@@ -45,6 +46,8 @@
     <ClInclude Include="Source\Core\Types.hpp" />
     <ClInclude Include="Source\Platform\Diagnostics.hpp" />
     <ClInclude Include="Source\Platform\Platform.hpp" />
+    <ClInclude Include="Source\Render\RenderDevice.hpp" />
+    <ClInclude Include="Source\Render\RenderTypes.hpp" />
     <ClInclude Include="Source\World\WorldPosition.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
