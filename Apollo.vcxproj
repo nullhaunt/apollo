@@ -41,6 +41,9 @@
     <ClCompile Include="Source\Platform\Windows\WindowsWindow.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Source\Render\Vulkan\VulkanBootstrap.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Render\Vulkan\VulkanContext.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -55,6 +58,7 @@
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />
     <ClInclude Include="Source\Render\RenderDevice.hpp" />
     <ClInclude Include="Source\Render\RenderTypes.hpp" />
+    <ClInclude Include="Source\Render\Vulkan\VulkanBootstrap.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanContext.hpp" />
     <ClInclude Include="Source\World\WorldPosition.hpp" />
   </ItemGroup>

@@ -4,6 +4,7 @@
   #error "VulkanContext is available only on Windows."
 #endif
 
+#include "Core/Types.hpp"
 #include "Platform/Windows/WindowsWindow.hpp"
 
 #include <vulkan/vulkan.hpp>
@@ -28,6 +29,11 @@ namespace apollo::render::vulkan
     [[nodiscard]] bool         IsValidationEnabled() const noexcept;
 
   private:
+    [[nodiscard]] bool CreateInstance() noexcept;
+    [[nodiscard]] bool CreateDebugMessenger() noexcept;
+    [[nodiscard]] bool CreateSurface( HWND window ) noexcept;
+    [[nodiscard]] bool CreateDevice() noexcept;
+
     vk::Instance               m_Instance{};
     vk::DebugUtilsMessengerEXT m_DebugMessenger{};
     vk::SurfaceKHR             m_Surface{};
@@ -35,8 +41,8 @@ namespace apollo::render::vulkan
     vk::Device                 m_Device{};
     vk::Queue                  m_GraphicsQueue{};
     vk::Queue                  m_PresentQueue{};
-    uint32_t                   m_GraphicsFamily{};
-    uint32_t                   m_PresentFamily{};
+    u32                        m_GraphicsFamily{};
+    u32                        m_PresentFamily{};
     char                       m_AdapterName[ VK_MAX_PHYSICAL_DEVICE_NAME_SIZE ]{};
     bool                       m_ValidationEnabled{};
   };

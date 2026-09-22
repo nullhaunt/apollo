@@ -1,53 +1,13 @@
 #include "Render/Vulkan/VulkanContext.hpp"
 
 #include "Platform/Diagnostics.hpp"
+#include "Render/Vulkan/VulkanBootstrap.hpp"
 
-#include <cstdio>
 #include <cstring>
-#include <limits>
-#include <memory>
-#include <new>
 
 namespace
 {
   using apollo::diagnostics::Level;
-
-  constexpr uint32_t InvalidFamily = std::numeric_limits<uint32_t>::max();
-
-  struct Candidate
-  {
-    vk::PhysicalDevice           device{};
-    vk::PhysicalDeviceProperties properties{};
-    uint32_t                     graphicsFamily{ InvalidFamily };
-    uint32_t                     presentFamily{ InvalidFamily };
-    int                          priority{ -1 };
-  };
-
-  void LogFailure( const char * operation, vk::Result result ) noexcept
-  {
-    char message[ 128 ]{};
-    std::snprintf( message, sizeof( message ), "%s failed (VkResult %d).", operation, static_cast<int>( result ) );
-    apollo::diagnostics::Write( Level::Error, message );
-  }
-
-  template <typename T> [[nodiscard]] std::unique_ptr<T[]> Allocate( uint32_t count ) noexcept
-  {
-    return count == 0 ? nullptr : std::unique_ptr<T[]>( new ( std::nothrow ) T[ count ]{} );
-  }
-
-  [[nodiscard]] bool HasExtension( const vk::ExtensionProperties * properties,
-                                   uint32_t                        count,
-                                   const char *                    requiredName ) noexcept
-  {
-    for ( uint32_t index = 0; index < count; ++index )
-    {
-      if ( std::strcmp( properties[ index ].extensionName.data(), requiredName ) == 0 )
-      {
-        return true;
-      }
-    }
-    return false;
-  }
 
 #if defined( APOLLO_BUILD_DEBUG )
   vk::Bool32 VKAPI_CALL DebugCallback( vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -62,138 +22,19 @@ namespace
     }
     return VK_FALSE;
   }
+
+  [[nodiscard]] vk::DebugUtilsMessengerCreateInfoEXT MakeDebugMessengerInfo() noexcept
+  {
+    vk::DebugUtilsMessengerCreateInfoEXT info{};
+    info.messageSeverity =
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+    info.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+    info.pfnUserCallback = DebugCallback;
+    return info;
+  }
 #endif
-
-  [[nodiscard]] bool SupportsSwapchain( vk::PhysicalDevice device, vk::SurfaceKHR surface ) noexcept
-  {
-    uint32_t   extensionCount{};
-    vk::Result result = device.enumerateDeviceExtensionProperties( nullptr, &extensionCount, nullptr );
-    if ( result != vk::Result::eSuccess )
-    {
-      LogFailure( "vkEnumerateDeviceExtensionProperties", result );
-      return false;
-    }
-
-    auto extensions = Allocate<vk::ExtensionProperties>( extensionCount );
-    if ( extensionCount != 0 && !extensions )
-    {
-      apollo::diagnostics::Write( Level::Error, "Could not allocate Vulkan device extension list." );
-      return false;
-    }
-    result = device.enumerateDeviceExtensionProperties( nullptr, &extensionCount, extensions.get() );
-    if ( result != vk::Result::eSuccess )
-    {
-      LogFailure( "vkEnumerateDeviceExtensionProperties", result );
-      return false;
-    }
-    if ( !HasExtension( extensions.get(), extensionCount, VK_KHR_SWAPCHAIN_EXTENSION_NAME ) )
-    {
-      return false;
-    }
-
-    uint32_t formatCount{};
-    uint32_t presentModeCount{};
-    result = device.getSurfaceFormatsKHR( surface, &formatCount, nullptr );
-    if ( result != vk::Result::eSuccess )
-    {
-      return false;
-    }
-    result = device.getSurfacePresentModesKHR( surface, &presentModeCount, nullptr );
-    return result == vk::Result::eSuccess && formatCount != 0 && presentModeCount != 0;
-  }
-
-  [[nodiscard]] Candidate SelectDevice( vk::Instance instance, vk::SurfaceKHR surface ) noexcept
-  {
-    Candidate  best{};
-    uint32_t   deviceCount{};
-    vk::Result result = instance.enumeratePhysicalDevices( &deviceCount, nullptr );
-    if ( result != vk::Result::eSuccess )
-    {
-      LogFailure( "vkEnumeratePhysicalDevices", result );
-      return best;
-    }
-    if ( deviceCount == 0 )
-    {
-      apollo::diagnostics::Write( Level::Error, "Vulkan reported no physical devices." );
-      return best;
-    }
-
-    auto devices = Allocate<vk::PhysicalDevice>( deviceCount );
-    if ( !devices )
-    {
-      apollo::diagnostics::Write( Level::Error, "Could not allocate Vulkan device list." );
-      return best;
-    }
-    result = instance.enumeratePhysicalDevices( &deviceCount, devices.get() );
-    if ( result != vk::Result::eSuccess )
-    {
-      LogFailure( "vkEnumeratePhysicalDevices", result );
-      return best;
-    }
-
-    for ( uint32_t deviceIndex = 0; deviceIndex < deviceCount; ++deviceIndex )
-    {
-      const vk::PhysicalDevice device = devices[ deviceIndex ];
-      uint32_t                 familyCount{};
-      device.getQueueFamilyProperties( &familyCount, nullptr );
-      if ( familyCount == 0 )
-      {
-        continue;
-      }
-      auto families = Allocate<vk::QueueFamilyProperties>( familyCount );
-      if ( !families )
-      {
-        apollo::diagnostics::Write( Level::Error, "Could not allocate Vulkan queue family list." );
-        return {};
-      }
-      device.getQueueFamilyProperties( &familyCount, families.get() );
-
-      Candidate candidate{};
-      candidate.device = device;
-      for ( uint32_t family = 0; family < familyCount; ++family )
-      {
-        if ( families[ family ].queueCount == 0 )
-        {
-          continue;
-        }
-        vk::Bool32 supportsPresent{};
-        result                      = device.getSurfaceSupportKHR( family, surface, &supportsPresent );
-        const bool supportsGraphics = static_cast<bool>( families[ family ].queueFlags & vk::QueueFlagBits::eGraphics );
-        const bool canPresent       = result == vk::Result::eSuccess && supportsPresent != 0;
-        if ( supportsGraphics && canPresent )
-        {
-          candidate.graphicsFamily = family;
-          candidate.presentFamily  = family;
-          break;
-        }
-        if ( supportsGraphics && candidate.graphicsFamily == InvalidFamily )
-        {
-          candidate.graphicsFamily = family;
-        }
-        if ( canPresent && candidate.presentFamily == InvalidFamily )
-        {
-          candidate.presentFamily = family;
-        }
-      }
-
-      if ( candidate.graphicsFamily == InvalidFamily || candidate.presentFamily == InvalidFamily ||
-           !SupportsSwapchain( device, surface ) )
-      {
-        continue;
-      }
-
-      device.getProperties( &candidate.properties );
-      candidate.priority = candidate.properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu     ? 2
-                           : candidate.properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu ? 1
-                                                                                                       : 0;
-      if ( candidate.priority > best.priority )
-      {
-        best = candidate;
-      }
-    }
-
-    return best;
-  }
 } // namespace
 
 namespace apollo::render::vulkan
@@ -211,71 +52,25 @@ namespace apollo::render::vulkan
       return false;
     }
 
-    uint32_t   extensionCount{};
-    vk::Result result = vk::enumerateInstanceExtensionProperties( nullptr, &extensionCount, nullptr );
-    if ( result != vk::Result::eSuccess )
+    if ( !CreateInstance() || !CreateDebugMessenger() || !CreateSurface( window ) || !CreateDevice() )
     {
-      LogFailure( "vkEnumerateInstanceExtensionProperties", result );
-      return false;
-    }
-    auto extensions = Allocate<vk::ExtensionProperties>( extensionCount );
-    if ( extensionCount != 0 && !extensions )
-    {
-      diagnostics::Write( Level::Error, "Could not allocate Vulkan instance extension list." );
-      return false;
-    }
-    result = vk::enumerateInstanceExtensionProperties( nullptr, &extensionCount, extensions.get() );
-    if ( result != vk::Result::eSuccess )
-    {
-      LogFailure( "vkEnumerateInstanceExtensionProperties", result );
-      return false;
-    }
-    if ( !HasExtension( extensions.get(), extensionCount, VK_KHR_SURFACE_EXTENSION_NAME ) ||
-         !HasExtension( extensions.get(), extensionCount, VK_KHR_WIN32_SURFACE_EXTENSION_NAME ) )
-    {
-      diagnostics::Write( Level::Error, "Required Vulkan Windows surface extensions are unavailable." );
+      Shutdown();
       return false;
     }
 
-    const char * instanceExtensions[ 3 ]{ VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
-    uint32_t     enabledExtensionCount = 2;
-    const char * validationLayer       = "VK_LAYER_KHRONOS_validation";
-    bool         enableValidation      = false;
+    diagnostics::Write( Level::Information, "Vulkan adapter: ", m_AdapterName );
+    diagnostics::Write( Level::Information,
+                        m_ValidationEnabled ? "Vulkan validation enabled." : "Vulkan validation disabled." );
+    return true;
+  }
 
-#if defined( APOLLO_BUILD_DEBUG )
-    uint32_t layerCount{};
-    result = vk::enumerateInstanceLayerProperties( &layerCount, nullptr );
-    if ( result != vk::Result::eSuccess )
+  bool VulkanContext::CreateInstance() noexcept
+  {
+    bootstrap::InstanceSettings settings{};
+    if ( !bootstrap::QueryInstanceSettings( settings ) )
     {
-      LogFailure( "vkEnumerateInstanceLayerProperties", result );
       return false;
     }
-    auto layers = Allocate<vk::LayerProperties>( layerCount );
-    if ( layerCount != 0 && !layers )
-    {
-      diagnostics::Write( Level::Error, "Could not allocate Vulkan instance layer list." );
-      return false;
-    }
-    result = vk::enumerateInstanceLayerProperties( &layerCount, layers.get() );
-    if ( result != vk::Result::eSuccess )
-    {
-      LogFailure( "vkEnumerateInstanceLayerProperties", result );
-      return false;
-    }
-    for ( uint32_t index = 0; index < layerCount; ++index )
-    {
-      enableValidation |= std::strcmp( layers[ index ].layerName.data(), validationLayer ) == 0;
-    }
-    enableValidation &= HasExtension( extensions.get(), extensionCount, VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
-    if ( enableValidation )
-    {
-      instanceExtensions[ enabledExtensionCount++ ] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-    }
-    else
-    {
-      diagnostics::Write( Level::Warning, "Vulkan validation layer or debug utils extension is unavailable." );
-    }
-#endif
 
     vk::ApplicationInfo applicationInfo{};
     applicationInfo.pApplicationName = "Apollo";
@@ -284,76 +79,86 @@ namespace apollo::render::vulkan
 
     vk::DebugUtilsMessengerCreateInfoEXT debugInfo{};
 #if defined( APOLLO_BUILD_DEBUG )
-    debugInfo.messageSeverity =
-      vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-    debugInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-    debugInfo.pfnUserCallback = DebugCallback;
+    debugInfo = MakeDebugMessengerInfo();
 #endif
 
+    const char *           validationLayer = bootstrap::ValidationLayer;
     vk::InstanceCreateInfo instanceInfo{};
-    instanceInfo.pNext                   = enableValidation ? &debugInfo : nullptr;
+    instanceInfo.pNext                   = settings.validation ? &debugInfo : nullptr;
     instanceInfo.pApplicationInfo        = &applicationInfo;
-    instanceInfo.enabledExtensionCount   = enabledExtensionCount;
-    instanceInfo.ppEnabledExtensionNames = instanceExtensions;
-    instanceInfo.enabledLayerCount       = enableValidation ? 1u : 0u;
-    instanceInfo.ppEnabledLayerNames     = enableValidation ? &validationLayer : nullptr;
+    instanceInfo.enabledExtensionCount   = settings.extensionCount;
+    instanceInfo.ppEnabledExtensionNames = settings.extensions;
+    instanceInfo.enabledLayerCount       = settings.validation ? 1u : 0u;
+    instanceInfo.ppEnabledLayerNames     = settings.validation ? &validationLayer : nullptr;
 
-    result = vk::createInstance( &instanceInfo, nullptr, &m_Instance );
+    const vk::Result result = vk::createInstance( &instanceInfo, nullptr, &m_Instance );
     if ( result != vk::Result::eSuccess )
     {
-      LogFailure( "vkCreateInstance", result );
-      Shutdown();
+      bootstrap::LogFailure( "vkCreateInstance", result );
       return false;
     }
-    m_ValidationEnabled = enableValidation;
+    m_ValidationEnabled = settings.validation;
+    return true;
+  }
 
+  bool VulkanContext::CreateDebugMessenger() noexcept
+  {
 #if defined( APOLLO_BUILD_DEBUG )
-    if ( enableValidation )
+    if ( !m_ValidationEnabled )
     {
-      const vk::detail::DispatchLoaderDynamic dispatch( static_cast<VkInstance>( m_Instance ), vkGetInstanceProcAddr );
-      if ( dispatch.vkCreateDebugUtilsMessengerEXT == nullptr )
-      {
-        diagnostics::Write( Level::Error, "Vulkan debug messenger entry point is unavailable." );
-        Shutdown();
-        return false;
-      }
-      result = m_Instance.createDebugUtilsMessengerEXT( &debugInfo, nullptr, &m_DebugMessenger, dispatch );
-      if ( result != vk::Result::eSuccess )
-      {
-        LogFailure( "vkCreateDebugUtilsMessengerEXT", result );
-        Shutdown();
-        return false;
-      }
+      return true;
+    }
+
+    const vk::detail::DispatchLoaderDynamic dispatch( static_cast<VkInstance>( m_Instance ), vkGetInstanceProcAddr );
+    if ( dispatch.vkCreateDebugUtilsMessengerEXT == nullptr )
+    {
+      diagnostics::Write( Level::Error, "Vulkan debug messenger entry point is unavailable." );
+      return false;
+    }
+
+    const vk::DebugUtilsMessengerCreateInfoEXT debugInfo = MakeDebugMessengerInfo();
+    const vk::Result                           result =
+      m_Instance.createDebugUtilsMessengerEXT( &debugInfo, nullptr, &m_DebugMessenger, dispatch );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateDebugUtilsMessengerEXT", result );
+      return false;
     }
 #endif
+    return true;
+  }
 
+  bool VulkanContext::CreateSurface( HWND window ) noexcept
+  {
     vk::Win32SurfaceCreateInfoKHR surfaceInfo{};
     surfaceInfo.hinstance = GetModuleHandleW( nullptr );
     surfaceInfo.hwnd      = window;
-    result                = m_Instance.createWin32SurfaceKHR( &surfaceInfo, nullptr, &m_Surface );
+
+    const vk::Result result = m_Instance.createWin32SurfaceKHR( &surfaceInfo, nullptr, &m_Surface );
     if ( result != vk::Result::eSuccess )
     {
-      LogFailure( "vkCreateWin32SurfaceKHR", result );
-      Shutdown();
+      bootstrap::LogFailure( "vkCreateWin32SurfaceKHR", result );
       return false;
     }
+    return true;
+  }
 
-    const Candidate selected = SelectDevice( m_Instance, m_Surface );
+  bool VulkanContext::CreateDevice() noexcept
+  {
+    const bootstrap::DeviceCandidate selected = bootstrap::SelectDevice( m_Instance, m_Surface );
     if ( !selected.device )
     {
       diagnostics::Write( Level::Error, "No Vulkan device supports graphics, presentation, and swapchains." );
-      Shutdown();
       return false;
     }
 
-    const float               queuePriority = 1.0f;
+    const f32                 queuePriority = 1.0f;
     vk::DeviceQueueCreateInfo queueInfos[ 2 ]{};
     queueInfos[ 0 ].queueFamilyIndex = selected.graphicsFamily;
     queueInfos[ 0 ].queueCount       = 1;
     queueInfos[ 0 ].pQueuePriorities = &queuePriority;
-    uint32_t queueInfoCount          = 1;
+
+    u32 queueInfoCount = 1;
     if ( selected.presentFamily != selected.graphicsFamily )
     {
       queueInfos[ 1 ]                  = queueInfos[ 0 ];
@@ -367,11 +172,11 @@ namespace apollo::render::vulkan
     deviceInfo.pQueueCreateInfos       = queueInfos;
     deviceInfo.enabledExtensionCount   = 1;
     deviceInfo.ppEnabledExtensionNames = &swapchainExtension;
-    result                             = selected.device.createDevice( &deviceInfo, nullptr, &m_Device );
+
+    const vk::Result result = selected.device.createDevice( &deviceInfo, nullptr, &m_Device );
     if ( result != vk::Result::eSuccess )
     {
-      LogFailure( "vkCreateDevice", result );
-      Shutdown();
+      bootstrap::LogFailure( "vkCreateDevice", result );
       return false;
     }
 
@@ -383,15 +188,11 @@ namespace apollo::render::vulkan
     if ( !m_GraphicsQueue || !m_PresentQueue )
     {
       diagnostics::Write( Level::Error, "Vulkan device did not return the requested queues." );
-      Shutdown();
       return false;
     }
 
     std::memcpy( m_AdapterName, selected.properties.deviceName.data(), sizeof( m_AdapterName ) );
     m_AdapterName[ sizeof( m_AdapterName ) - 1 ] = '\0';
-    diagnostics::Write( Level::Information, "Vulkan adapter: ", m_AdapterName );
-    diagnostics::Write( Level::Information,
-                        m_ValidationEnabled ? "Vulkan validation enabled." : "Vulkan validation disabled." );
     return true;
   }
 
