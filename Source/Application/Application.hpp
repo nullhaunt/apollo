@@ -1,11 +1,18 @@
 #pragma once
 
+#include "Platform/Platform.hpp"
+
+#if defined( APOLLO_PLATFORM_WINDOWS )
+  #include "Platform/Windows/WindowsWindow.hpp"
+#endif
+
 namespace apollo
 {
   enum class ApplicationExitStatus
   {
     Success,
     InitializationFailed,
+    PlatformFailure,
     InvalidLifecycleState
   };
 
@@ -37,5 +44,9 @@ namespace apollo
     void               Shutdown() noexcept;
 
     State m_State{ State::Created };
+
+#if defined( APOLLO_PLATFORM_WINDOWS )
+    platform::WindowsWindow m_Window{};
+#endif
   };
 } // namespace apollo
