@@ -33,12 +33,18 @@
     <CustomBuild Include="NintendoSDK_Application.bmp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Application\Application.cpp" />
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
     <ClCompile Include="Source\Main.cpp" />
+    <ClCompile Include="Source\Platform\Diagnostics.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Application\Application.hpp" />
+    <ClInclude Include="Source\Core\BuildConfiguration.hpp" />
     <ClInclude Include="Source\Core\Identifier.hpp" />
     <ClInclude Include="Source\Core\Types.hpp" />
+    <ClInclude Include="Source\Platform\Diagnostics.hpp" />
+    <ClInclude Include="Source\Platform\Platform.hpp" />
     <ClInclude Include="Source\World\WorldPosition.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -169,7 +175,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_WINDOWS=1;APOLLO_BUILD_DEBUG=1;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -182,7 +188,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_WINDOWS=1;APOLLO_BUILD_DEVELOP=1;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -197,7 +203,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_WINDOWS=1;APOLLO_BUILD_RELEASE=1;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -216,6 +222,7 @@
       <Path>$(IntDir)$(TargetName).log</Path>
     </BuildLog>
     <ClCompile>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_DEBUG=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -227,6 +234,7 @@
       <Path>$(IntDir)$(TargetName).log</Path>
     </BuildLog>
     <ClCompile>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_DEVELOP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -238,6 +246,7 @@
       <Path>$(IntDir)$(TargetName).log</Path>
     </BuildLog>
     <ClCompile>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_RELEASE=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
