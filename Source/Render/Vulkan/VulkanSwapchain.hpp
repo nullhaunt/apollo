@@ -4,8 +4,8 @@
   #error "VulkanSwapchain is available only on Windows."
 #endif
 
-#include "Render/RenderTypes.hpp"
 #include "Render/RenderBudget.hpp"
+#include "Render/RenderTypes.hpp"
 
 #include <memory>
 #include <vulkan/vulkan.hpp>

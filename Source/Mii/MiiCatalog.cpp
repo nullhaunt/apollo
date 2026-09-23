@@ -25,25 +25,37 @@ namespace apollo::mii
         if ( codepoint >= 0xD800 && codepoint <= 0xDBFF )
         {
           const std::uint32_t low = i + 1 < nn::mii::Nickname::Length ? nickname.name[ i + 1 ] : 0;
-          if ( low < 0xDC00 || low > 0xDFFF ) break;
+          if ( low < 0xDC00 || low > 0xDFFF )
+          {
+            break;
+          }
           codepoint = 0x10000 + ( ( codepoint - 0xD800 ) << 10 ) + ( low - 0xDC00 );
           ++i;
         }
-        else if ( codepoint >= 0xDC00 && codepoint <= 0xDFFF ) break;
+        else if ( codepoint >= 0xDC00 && codepoint <= 0xDFFF )
+        {
+          break;
+        }
 
         const size_t width = codepoint < 0x80 ? 1 : codepoint < 0x800 ? 2 : codepoint < 0x10000 ? 3 : 4;
-        if ( output + width >= destination.size() ) break;
-        if ( width == 1 ) destination[ output++ ] = static_cast<char>( codepoint );
+        if ( output + width >= destination.size() )
+        {
+          break;
+        }
+        if ( width == 1 )
+        {
+          destination[ output++ ] = static_cast<char>( codepoint );
+        }
         else
         {
           for ( size_t part = width - 1; part > 0; --part )
           {
-            destination[ output + part ] = static_cast<char>( 0x80 | ( codepoint & 0x3F ) );
-            codepoint >>= 6;
+            destination[ output + part ]   = static_cast<char>( 0x80 | ( codepoint & 0x3F ) );
+            codepoint                    >>= 6;
           }
-          const std::uint32_t prefix = width == 2 ? 0xC0 : width == 3 ? 0xE0 : 0xF0;
-          destination[ output ] = static_cast<char>( prefix | codepoint );
-          output += width;
+          const std::uint32_t prefix  = width == 2 ? 0xC0 : width == 3 ? 0xE0 : 0xF0;
+          destination[ output ]       = static_cast<char>( prefix | codepoint );
+          output                     += width;
         }
       }
       destination[ output ] = '\0';
@@ -52,8 +64,9 @@ namespace apollo::mii
 
   bool Catalog::Load() noexcept
   {
-    m_Count = 0;
+    m_Count     = 0;
     m_Available = false;
+
     nn::mii::Database database;
     if ( !database.Initialize().IsSuccess() )
     {
@@ -62,7 +75,7 @@ namespace apollo::mii
     }
 
     nn::mii::CharInfoElement elements[ CatalogCapacity ]{};
-    int count = 0;
+    int                      count = 0;
 #if defined( APOLLO_PLATFORM_NX )
     constexpr int sourceFlags = nn::mii::SourceFlag_All;
 #else
@@ -71,6 +84,7 @@ namespace apollo::mii
 #endif
     const bool fetched = database.Get( &count, elements, static_cast<int>( CatalogCapacity ), sourceFlags ).IsSuccess();
     database.Finalize();
+
     if ( !fetched || count < 0 || count > static_cast<int>( CatalogCapacity ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "Mii catalog enumeration failed." );
@@ -84,19 +98,24 @@ namespace apollo::mii
       nn::mii::CharInfo restored{};
       std::memcpy( &restored, entry.snapshot.data(), CharInfoBytes );
       const nn::mii::CharInfoAccessor accessor( restored );
-      if ( !accessor.IsValid() ) continue;
+      if ( !accessor.IsValid() )
+      {
+        continue;
+      }
+
       ++m_Count;
       entry.source = elements[ i ].source == nn::mii::Source_Database ? Source::Database : Source::Default;
       entry.height = static_cast<std::uint8_t>( accessor.GetHeight() );
-      entry.build = static_cast<std::uint8_t>( accessor.GetBuild() );
+      entry.build  = static_cast<std::uint8_t>( accessor.GetBuild() );
       nn::mii::Nickname nickname{};
       accessor.GetNickname( &nickname, nn::mii::FontRegionFlag_All );
       CopyNickname( entry.name, nickname );
     }
+
     m_Available = true;
     char message[ 96 ]{};
-    std::snprintf( message, sizeof( message ), "Mii catalog loaded: %u entries.",
-                   static_cast<unsigned int>( m_Count ) );
+    std::snprintf(
+      message, sizeof( message ), "Mii catalog loaded: %u entries.", static_cast<unsigned int>( m_Count ) );
     diagnostics::Write( diagnostics::Level::Information, message );
     return true;
   }

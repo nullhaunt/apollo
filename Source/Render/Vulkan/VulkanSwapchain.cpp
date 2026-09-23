@@ -289,8 +289,8 @@ namespace apollo::render::vulkan
   bool VulkanSwapchain::CreateRenderPass() noexcept
   {
     vk::AttachmentDescription color{};
-    color.format         = m_Format;
-    color.samples        = vk::SampleCountFlagBits::e1;
+    color.format  = m_Format;
+    color.samples = vk::SampleCountFlagBits::e1;
     // Apollo clears explicitly inside the pass so the GPU timestamp after
     // the clear has a well-defined operation to measure.
     color.loadOp         = vk::AttachmentLoadOp::eDontCare;

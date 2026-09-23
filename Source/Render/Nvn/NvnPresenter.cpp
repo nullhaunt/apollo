@@ -6,8 +6,8 @@
   #include <imgui.h>
 #endif
 
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 
 namespace apollo::render::nvn
 {
@@ -15,7 +15,7 @@ namespace apollo::render::nvn
   {
     constexpr size_t CommandMemoryPerBuffer = 256 * 1024;
     constexpr size_t ControlMemoryPerBuffer = 64 * 1024;
-    constexpr float  ClearColor[ 4 ]         = { 0.08f, 0.12f, 0.20f, 1.0f };
+    constexpr float  ClearColor[ 4 ]        = { 0.08f, 0.12f, 0.20f, 1.0f };
 
     [[nodiscard]] constexpr size_t AlignUp( size_t value, size_t alignment ) noexcept
     {
@@ -116,7 +116,10 @@ namespace apollo::render::nvn
 
     m_Queue->Finish();
 #if !defined( APOLLO_BUILD_RELEASE )
-    for ( bool & pending : m_CounterPending ) pending = false;
+    for ( bool & pending : m_CounterPending )
+    {
+      pending = false;
+    }
     telemetry::InvalidateGpuTimings();
 #endif
     DestroyImages();
@@ -137,7 +140,8 @@ namespace apollo::render::nvn
     }
 
     int textureIndex{};
-    if ( m_Window.AcquireTexture( &m_DisplayReleaseSync, &textureIndex ) != ::nvn::WindowAcquireTextureResult::SUCCESS ||
+    if ( m_Window.AcquireTexture( &m_DisplayReleaseSync, &textureIndex ) !=
+           ::nvn::WindowAcquireTextureResult::SUCCESS ||
          textureIndex < 0 || textureIndex >= BackbufferCount )
     {
       LogFailure( "NVN backbuffer acquisition failed." );
@@ -145,8 +149,7 @@ namespace apollo::render::nvn
     }
 
     const auto waited = m_DisplayReleaseSync.Wait( NVN_WAIT_TIMEOUT_MAXIMUM );
-    if ( waited != ::nvn::SyncWaitResult::ALREADY_SIGNALED &&
-         waited != ::nvn::SyncWaitResult::CONDITION_SATISFIED )
+    if ( waited != ::nvn::SyncWaitResult::ALREADY_SIGNALED && waited != ::nvn::SyncWaitResult::CONDITION_SATISFIED )
     {
       LogFailure( "NVN backbuffer release wait failed." );
       return Result::Failure;
@@ -159,13 +162,11 @@ namespace apollo::render::nvn
     // AcquireTexture's release sync has completed for this backbuffer. Reattach its
     // command/control chunks before recording so each frame starts at offset zero.
     // NVN keeps advancing within a chunk across BeginRecording calls otherwise.
-    commands.AddCommandMemory( &m_CommandPool, CommandMemoryPerBuffer * textureIndex,
-                               CommandMemoryPerBuffer );
+    commands.AddCommandMemory( &m_CommandPool, CommandMemoryPerBuffer * textureIndex, CommandMemoryPerBuffer );
     commands.AddControlMemory( m_ControlMemory[ textureIndex ], ControlMemoryPerBuffer );
     commands.BeginRecording();
 #if !defined( APOLLO_BUILD_RELEASE )
-    const ::nvn::BufferAddress counterBase = m_CounterPool.GetBufferAddress() +
-      m_CounterStride * textureIndex;
+    const ::nvn::BufferAddress counterBase = m_CounterPool.GetBufferAddress() + m_CounterStride * textureIndex;
     commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase );
 #endif
     ::nvn::Texture * target = &m_Textures[ textureIndex ];
@@ -206,29 +207,41 @@ namespace apollo::render::nvn
   {
     int alignment{};
     m_Device->GetInteger( ::nvn::DeviceInfo::COUNTER_ALIGNMENT, &alignment );
-    if ( alignment <= 0 ) return false;
-    m_CounterStride = AlignUp( 4 * sizeof( ::nvn::CounterData ), static_cast<size_t>( alignment ) );
-    const size_t poolSize = AlignUp( m_CounterStride * BackbufferCount,
-                                     NVN_MEMORY_POOL_STORAGE_GRANULARITY );
-    m_CounterMemory = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, poolSize );
-    if ( m_CounterMemory == nullptr ) return false;
+    if ( alignment <= 0 )
+    {
+      return false;
+    }
+    m_CounterStride       = AlignUp( 4 * sizeof( ::nvn::CounterData ), static_cast<size_t>( alignment ) );
+    const size_t poolSize = AlignUp( m_CounterStride * BackbufferCount, NVN_MEMORY_POOL_STORAGE_GRANULARITY );
+    m_CounterMemory       = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, poolSize );
+    if ( m_CounterMemory == nullptr )
+    {
+      return false;
+    }
     m_CounterAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder builder{};
-    builder.SetDefaults().SetDevice( m_Device )
+    builder.SetDefaults()
+      .SetDevice( m_Device )
       .SetFlags( ::nvn::MemoryPoolFlags::CPU_UNCACHED | ::nvn::MemoryPoolFlags::GPU_UNCACHED )
       .SetStorage( m_CounterMemory, poolSize );
-    if ( !m_CounterPool.Initialize( &builder ) ) return false;
+    if ( !m_CounterPool.Initialize( &builder ) )
+    {
+      return false;
+    }
     m_CounterPoolReady = true;
-    m_CounterReports = static_cast<::nvn::CounterData *>( m_CounterPool.Map() );
+    m_CounterReports   = static_cast<::nvn::CounterData *>( m_CounterPool.Map() );
     telemetry::SetGpuTimingAvailable( m_CounterReports != nullptr );
     return m_CounterReports != nullptr;
   }
 
   void NvnPresenter::ReadGpuCounters( int backbuffer ) noexcept
   {
-    if ( !m_CounterPending[ backbuffer ] ) return;
+    if ( !m_CounterPending[ backbuffer ] )
+    {
+      return;
+    }
     m_CounterPending[ backbuffer ] = false;
-    const auto * reports = reinterpret_cast<const ::nvn::CounterData *>(
+    const auto * reports           = reinterpret_cast<const ::nvn::CounterData *>(
       reinterpret_cast<const unsigned char *>( m_CounterReports ) + m_CounterStride * backbuffer );
     const u64 t0 = m_Device->GetTimestampInNanoseconds( &reports[ 0 ] );
     const u64 t1 = m_Device->GetTimestampInNanoseconds( &reports[ 1 ] );
@@ -240,13 +253,13 @@ namespace apollo::render::nvn
       return;
     }
     constexpr double scale = 1.0 / 1000000.0;
-    telemetry::SetGpuTimings( { true, ( t1 - t0 ) * scale, ( t2 - t1 ) * scale,
-                               ( t3 - t2 ) * scale, ( t3 - t0 ) * scale } );
+    telemetry::SetGpuTimings(
+      { true, ( t1 - t0 ) * scale, ( t2 - t1 ) * scale, ( t3 - t2 ) * scale, ( t3 - t0 ) * scale } );
     if ( !m_FirstTimingReported )
     {
       char message[ 128 ]{};
-      std::snprintf( message, sizeof( message ), "NVN GPU timestamps active: %.3f ms first frame.",
-                     ( t3 - t0 ) * scale );
+      std::snprintf(
+        message, sizeof( message ), "NVN GPU timestamps active: %.3f ms first frame.", ( t3 - t0 ) * scale );
       diagnostics::Write( diagnostics::Level::Information, message );
       m_FirstTimingReported = true;
     }
@@ -261,14 +274,20 @@ namespace apollo::render::nvn
     }
     DestroyImages();
 #if !defined( APOLLO_BUILD_RELEASE )
-    if ( m_CounterPoolReady ) m_CounterPool.Finalize();
+    if ( m_CounterPoolReady )
+    {
+      m_CounterPool.Finalize();
+    }
     m_CounterPoolReady = false;
-    m_CounterReports = nullptr;
+    m_CounterReports   = nullptr;
     std::free( m_CounterMemory );
     m_CounterMemory = nullptr;
     m_CounterAllocation.Release();
     m_CounterStride = 0;
-    for ( bool & pending : m_CounterPending ) pending = false;
+    for ( bool & pending : m_CounterPending )
+    {
+      pending = false;
+    }
     m_FirstTimingReported = false;
     telemetry::InvalidateGpuTimings();
     telemetry::SetGpuTimingAvailable( false );
@@ -313,7 +332,9 @@ namespace apollo::render::nvn
     size_t logicalBytes{};
     if ( !budget::Rgba8Footprint( extent.width, extent.height, BackbufferCount, logicalBytes ) ||
          !m_PresentationBudget.Acquire( budget::Resource::Presentation, logicalBytes ) )
+    {
       return false;
+    }
     ::nvn::TextureBuilder textureBuilder{};
     textureBuilder.SetDefaults()
       .SetDevice( m_Device )
@@ -330,7 +351,7 @@ namespace apollo::render::nvn
     }
     const size_t textureStride = AlignUp( textureSize, textureAlignment );
     const size_t poolSize      = AlignUp( textureStride * BackbufferCount, NVN_MEMORY_POOL_STORAGE_GRANULARITY );
-    m_TextureMemory           = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, poolSize );
+    m_TextureMemory            = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, poolSize );
     if ( m_TextureMemory == nullptr )
     {
       return false;
@@ -359,7 +380,7 @@ namespace apollo::render::nvn
         DestroyImages();
         return false;
       }
-      m_TextureReady[ index ] = true;
+      m_TextureReady[ index ]  = true;
       texturePointers[ index ] = &m_Textures[ index ];
     }
 
@@ -378,7 +399,7 @@ namespace apollo::render::nvn
     m_Window.SetCrop( 0, 0, static_cast<int>( extent.width ), static_cast<int>( extent.height ) );
 
     const size_t commandPoolSize = CommandMemoryPerBuffer * BackbufferCount;
-    m_CommandMemory = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, commandPoolSize );
+    m_CommandMemory              = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, commandPoolSize );
     if ( m_CommandMemory == nullptr )
     {
       DestroyImages();
@@ -413,8 +434,8 @@ namespace apollo::render::nvn
       }
       m_ControlAllocations[ index ].Acquire( ControlMemoryPerBuffer );
       m_FrameBufferReady[ index ] = true;
-      m_FrameBuffers[ index ].AddCommandMemory( &m_CommandPool, CommandMemoryPerBuffer * index,
-                                               CommandMemoryPerBuffer );
+      m_FrameBuffers[ index ].AddCommandMemory(
+        &m_CommandPool, CommandMemoryPerBuffer * index, CommandMemoryPerBuffer );
       m_FrameBuffers[ index ].AddControlMemory( m_ControlMemory[ index ], ControlMemoryPerBuffer );
     }
 

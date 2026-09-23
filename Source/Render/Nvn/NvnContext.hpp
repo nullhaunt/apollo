@@ -4,9 +4,9 @@
   #error "NvnContext is available only on NX64."
 #endif
 
+#include "Render/RenderTelemetry.hpp"
 #include <nvn/nvn_Cpp.h>
 #include <nvn/nvn_CppMethods.h>
-#include "Render/RenderTelemetry.hpp"
 
 namespace apollo::render::nvn
 {
@@ -29,11 +29,11 @@ namespace apollo::render::nvn
     [[nodiscard]] ::nvn::Queue *  GetQueue() noexcept;
 
   private:
-    ::nvn::Device m_Device{};
-    ::nvn::Queue  m_Queue{};
-    void *        m_QueueMemory{};
+    ::nvn::Device                m_Device{};
+    ::nvn::Queue                 m_Queue{};
+    void *                       m_QueueMemory{};
     telemetry::TrackedAllocation m_QueueAllocation{};
-    bool          m_DeviceReady{};
-    bool          m_QueueReady{};
+    bool                         m_DeviceReady{};
+    bool                         m_QueueReady{};
   };
 } // namespace apollo::render::nvn

@@ -59,7 +59,9 @@
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
     <ClCompile Include="Source\Mii\MiiCatalog.cpp" />
     <ClCompile Include="Source\Mii\MiiResources.cpp" />
-    <ClCompile Include="Source\Mii\MiiNvnModel.cpp"><ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="Source\Mii\MiiNvnModel.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Platform\Diagnostics.cpp" />
     <ClCompile Include="Source\Render\RenderContracts.cpp" />

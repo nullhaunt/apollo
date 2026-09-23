@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Platform/Platform.hpp"
 #include "Mii/MiiCatalog.hpp"
 #include "Mii/MiiResources.hpp"
+#include "Platform/Platform.hpp"
 #if !defined( APOLLO_BUILD_RELEASE )
   #include "Debug/DebugUi.hpp"
 #endif
@@ -58,8 +58,8 @@ namespace apollo
     [[nodiscard]] render::Result RecreatePresentation( platform::ClientExtent extent ) noexcept;
 #endif
 
-    State m_State{ State::Created };
-    mii::Catalog m_MiiCatalog{};
+    State              m_State{ State::Created };
+    mii::Catalog       m_MiiCatalog{};
     mii::ResourceFiles m_MiiResources{};
 
 #if !defined( APOLLO_BUILD_RELEASE )
@@ -75,7 +75,7 @@ namespace apollo
 #elif defined( APOLLO_PLATFORM_NX )
     render::nvn::NvnContext   m_Nvn{};
     render::nvn::NvnPresenter m_NvnPresenter{};
-    mii::NvnModel m_MiiModel{};
+    mii::NvnModel             m_MiiModel{};
 #endif
   };
 } // namespace apollo

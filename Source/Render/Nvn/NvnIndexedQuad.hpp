@@ -5,10 +5,10 @@
 #endif
 
 #include "Render/Nvn/NvnContext.hpp"
-#include "Render/RenderTypes.hpp"
 #include "Render/RenderBudget.hpp"
-#include "Render/TextureData.hpp"
 #include "Render/RenderTelemetry.hpp"
+#include "Render/RenderTypes.hpp"
+#include "Render/TextureData.hpp"
 
 namespace apollo::render::nvn
 {
@@ -32,40 +32,40 @@ namespace apollo::render::nvn
 
     ::nvn::Device * m_Device{};
 
-    ::nvn::MemoryPool m_ShaderPool{};
-    void *            m_ShaderMemory{};
+    ::nvn::MemoryPool            m_ShaderPool{};
+    void *                       m_ShaderMemory{};
     telemetry::TrackedAllocation m_ShaderAllocation{};
-    bool              m_ShaderPoolReady{};
-    ::nvn::Program    m_Program{};
-    bool              m_ProgramReady{};
+    bool                         m_ShaderPoolReady{};
+    ::nvn::Program               m_Program{};
+    bool                         m_ProgramReady{};
 
-    ::nvn::MemoryPool m_GeometryPool{};
-    void *            m_GeometryMemory{};
+    ::nvn::MemoryPool            m_GeometryPool{};
+    void *                       m_GeometryMemory{};
     telemetry::TrackedAllocation m_GeometryAllocation{};
-    bool              m_GeometryPoolReady{};
-    budget::Reservation m_GeometryBudget{};
-    ::nvn::Buffer     m_VertexBuffer{};
-    ::nvn::Buffer     m_IndexBuffer{};
-    bool              m_VertexReady{};
-    bool              m_IndexReady{};
+    bool                         m_GeometryPoolReady{};
+    budget::Reservation          m_GeometryBudget{};
+    ::nvn::Buffer                m_VertexBuffer{};
+    ::nvn::Buffer                m_IndexBuffer{};
+    bool                         m_VertexReady{};
+    bool                         m_IndexReady{};
 
-    ::nvn::MemoryPool m_TextureMemoryPool{};
-    void *            m_TextureMemory{};
+    ::nvn::MemoryPool            m_TextureMemoryPool{};
+    void *                       m_TextureMemory{};
     telemetry::TrackedAllocation m_TextureAllocation{};
-    bool              m_TextureMemoryPoolReady{};
-    budget::Reservation m_TextureBudget{};
-    ::nvn::Texture    m_Texture{};
-    bool              m_TextureReady{};
-    ::nvn::TexturePool m_TexturePool{};
-    bool               m_TexturePoolReady{};
-    ::nvn::Sampler     m_Sampler{};
-    bool               m_SamplerReady{};
-    ::nvn::SamplerPool m_SamplerPool{};
-    bool               m_SamplerPoolReady{};
+    bool                         m_TextureMemoryPoolReady{};
+    budget::Reservation          m_TextureBudget{};
+    ::nvn::Texture               m_Texture{};
+    bool                         m_TextureReady{};
+    ::nvn::TexturePool           m_TexturePool{};
+    bool                         m_TexturePoolReady{};
+    ::nvn::Sampler               m_Sampler{};
+    bool                         m_SamplerReady{};
+    ::nvn::SamplerPool           m_SamplerPool{};
+    bool                         m_SamplerPoolReady{};
     ::nvn::SeparateTextureHandle m_TextureHandle{};
     ::nvn::SeparateSamplerHandle m_SamplerHandle{};
     int                          m_TextureBinding{ -1 };
     int                          m_SamplerBinding{ -1 };
-    bool              m_Ready{};
+    bool                         m_Ready{};
   };
 } // namespace apollo::render::nvn

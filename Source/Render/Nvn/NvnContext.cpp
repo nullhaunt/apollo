@@ -20,7 +20,7 @@ namespace apollo::render::nvn
     constexpr size_t GraphicsAlignment  = nv::GraphicsMemoryAlignment;
     constexpr size_t QueueControlSize   = 64 * 1024;
 
-    bool g_GraphicsReady{};
+    bool                         g_GraphicsReady{};
     telemetry::TrackedAllocation g_GraphicsAllocation{};
 
     void * AllocateGraphics( size_t size, size_t alignment, void * ) noexcept
@@ -90,8 +90,8 @@ namespace apollo::render::nvn
       return false;
     }
 
-    const auto getCProcAddress = reinterpret_cast<PFNNVNDEVICEGETPROCADDRESSPROC>(
-      nvnBootstrapLoader( "nvnDeviceGetProcAddress" ) );
+    const auto getCProcAddress =
+      reinterpret_cast<PFNNVNDEVICEGETPROCADDRESSPROC>( nvnBootstrapLoader( "nvnDeviceGetProcAddress" ) );
     static_assert( sizeof( ::nvn::Device ) == sizeof( NVNdevice ) );
     static_assert( alignof( ::nvn::Device ) == alignof( NVNdevice ) );
     nvnLoadCPPProcs( nullptr, getProcAddress );

@@ -1,9 +1,9 @@
 #include "Render/Nvn/NvnIndexedQuad.hpp"
 
+#include "IndexedQuadShader.hpp"
 #include "Platform/Diagnostics.hpp"
 #include "Render/IndexedQuad.hpp"
 #include "Render/IndexedQuadTexture.hpp"
-#include "IndexedQuadShader.hpp"
 
 #include <nvnTool/nvnTool_GlslcInterface.h>
 
@@ -29,8 +29,7 @@ namespace apollo::render::nvn
 
     [[nodiscard]] void * AllocateAligned( size_t size ) noexcept
     {
-      return aligned_alloc( NVN_MEMORY_POOL_STORAGE_ALIGNMENT,
-                            AlignUp( size, NVN_MEMORY_POOL_STORAGE_GRANULARITY ) );
+      return aligned_alloc( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, AlignUp( size, NVN_MEMORY_POOL_STORAGE_GRANULARITY ) );
     }
 
     struct ShaderSection
@@ -74,37 +73,41 @@ namespace apollo::render::nvn
     const auto * output = reinterpret_cast<const GLSLCoutput *>( bytes );
     if ( output->magic != GLSLC_MAGIC_NUMBER || output->size != sizeof( bytes ) || output->numSections < 2 ||
          !Fits( offsetof( GLSLCoutput, headers ),
-                static_cast<size_t>( output->numSections ) * sizeof( GLSLCsectionHeaderUnion ), sizeof( bytes ) ) )
+                static_cast<size_t>( output->numSections ) * sizeof( GLSLCsectionHeaderUnion ),
+                sizeof( bytes ) ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "Invalid NVN shader package." );
       return false;
     }
 
     ShaderSection sections[ 2 ]{};
-    int sectionCount{};
+    int           sectionCount{};
     for ( unsigned int index = 0; index < output->numSections; ++index )
     {
       const auto & header = output->headers[ index ];
       if ( header.genericHeader.common.type == GLSLC_SECTION_TYPE_REFLECTION )
       {
-        const auto & reflection = header.programReflectionHeader;
-        const size_t base = reflection.common.dataOffset;
+        const auto & reflection    = header.programReflectionHeader;
+        const size_t base          = reflection.common.dataOffset;
         const size_t uniformOffset = base + reflection.uniformOffset;
         const size_t stringsOffset = base + reflection.stringPoolOffset;
+
         if ( !Fits( base, reflection.uniformOffset, sizeof( bytes ) ) ||
-             !Fits( uniformOffset, static_cast<size_t>( reflection.numUniforms ) * sizeof( GLSLCuniformInfo ), sizeof( bytes ) ) ||
+             !Fits( uniformOffset,
+                    static_cast<size_t>( reflection.numUniforms ) * sizeof( GLSLCuniformInfo ),
+                    sizeof( bytes ) ) ||
              !Fits( base, reflection.stringPoolOffset, sizeof( bytes ) ) ||
              !Fits( stringsOffset, reflection.stringPoolSize, sizeof( bytes ) ) )
         {
           return false;
         }
         const auto * uniforms = reinterpret_cast<const GLSLCuniformInfo *>( bytes + uniformOffset );
-        const auto * strings = reinterpret_cast<const char *>( bytes + stringsOffset );
+        const auto * strings  = reinterpret_cast<const char *>( bytes + stringsOffset );
+
         for ( unsigned int uniformIndex = 0; uniformIndex < reflection.numUniforms; ++uniformIndex )
         {
           const auto & uniform = uniforms[ uniformIndex ];
-          if ( !Fits( uniform.nameInfo.nameOffset, uniform.nameInfo.nameLength,
-                      reflection.stringPoolSize ) )
+          if ( !Fits( uniform.nameInfo.nameOffset, uniform.nameInfo.nameLength, reflection.stringPoolSize ) )
           {
             return false;
           }
@@ -122,18 +125,21 @@ namespace apollo::render::nvn
             m_SamplerBinding = uniform.bindings[ NVN_SHADER_STAGE_FRAGMENT ];
           }
         }
+
         continue;
       }
       if ( header.genericHeader.common.type != GLSLC_SECTION_TYPE_GPU_CODE )
       {
         continue;
       }
+
       if ( sectionCount == 2 )
       {
         return false;
       }
-      const auto & gpu = header.gpuCodeHeader;
+      const auto & gpu  = header.gpuCodeHeader;
       const size_t base = gpu.common.dataOffset;
+
       if ( !Fits( base, gpu.controlOffset, sizeof( bytes ) ) ||
            !Fits( base + gpu.controlOffset, gpu.controlSize, sizeof( bytes ) ) ||
            !Fits( base, gpu.dataOffset, sizeof( bytes ) ) ||
@@ -150,15 +156,17 @@ namespace apollo::render::nvn
       {
         return false;
       }
-      sections[ slot ] = { bytes + base + gpu.controlOffset, bytes + base + gpu.dataOffset,
-                           gpu.dataSize, gpu.scratchMemBytesRecommended };
+      sections[ slot ] = {
+        bytes + base + gpu.controlOffset, bytes + base + gpu.dataOffset, gpu.dataSize, gpu.scratchMemBytesRecommended };
       ++sectionCount;
     }
+
     if ( sectionCount != 2 || sections[ 0 ].code == nullptr || sections[ 1 ].code == nullptr ||
-         sections[ 0 ].scratchSize != 0 ||
-         sections[ 1 ].scratchSize != 0 || m_TextureBinding < 0 || m_SamplerBinding < 0 )
+         sections[ 0 ].scratchSize != 0 || sections[ 1 ].scratchSize != 0 || m_TextureBinding < 0 ||
+         m_SamplerBinding < 0 )
     {
-      diagnostics::Write( diagnostics::Level::Error, "NVN indexed shader stages or scratch requirements are unsupported." );
+      diagnostics::Write( diagnostics::Level::Error,
+                          "NVN indexed shader stages or scratch requirements are unsupported." );
       return false;
     }
 
@@ -170,14 +178,16 @@ namespace apollo::render::nvn
     {
       return false;
     }
+
     const size_t secondOffset = AlignUp( sections[ 0 ].codeSize, static_cast<size_t>( shaderAlignment ) );
-    const size_t poolSize = AlignUp( secondOffset + sections[ 1 ].codeSize + static_cast<size_t>( shaderPadding ),
+    const size_t poolSize     = AlignUp( secondOffset + sections[ 1 ].codeSize + static_cast<size_t>( shaderPadding ),
                                      NVN_MEMORY_POOL_STORAGE_GRANULARITY );
-    m_ShaderMemory = AllocateAligned( poolSize );
+    m_ShaderMemory            = AllocateAligned( poolSize );
     if ( m_ShaderMemory == nullptr )
     {
       return false;
     }
+
     m_ShaderAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults()
@@ -189,8 +199,9 @@ namespace apollo::render::nvn
     {
       return false;
     }
+
     m_ShaderPoolReady = true;
-    auto * mapped = static_cast<unsigned char *>( m_ShaderPool.Map() );
+    auto * mapped     = static_cast<unsigned char *>( m_ShaderPool.Map() );
     if ( mapped == nullptr )
     {
       return false;
@@ -220,10 +231,12 @@ namespace apollo::render::nvn
   {
     if ( !m_GeometryBudget.Acquire( budget::Resource::Geometry,
                                     sizeof( IndexedQuadVertices ) + sizeof( IndexedQuadIndices ) ) )
+    {
       return false;
+    }
     constexpr size_t indexOffset = NVN_MEMORY_POOL_STORAGE_GRANULARITY;
-    constexpr size_t poolSize = indexOffset + NVN_MEMORY_POOL_STORAGE_GRANULARITY;
-    m_GeometryMemory = AllocateAligned( poolSize );
+    constexpr size_t poolSize    = indexOffset + NVN_MEMORY_POOL_STORAGE_GRANULARITY;
+    m_GeometryMemory             = AllocateAligned( poolSize );
     if ( m_GeometryMemory == nullptr )
     {
       return false;
@@ -239,7 +252,7 @@ namespace apollo::render::nvn
       return false;
     }
     m_GeometryPoolReady = true;
-    auto * mapped = static_cast<unsigned char *>( m_GeometryPool.Map() );
+    auto * mapped       = static_cast<unsigned char *>( m_GeometryPool.Map() );
     if ( mapped == nullptr )
     {
       return false;
@@ -248,8 +261,7 @@ namespace apollo::render::nvn
     std::memcpy( mapped + indexOffset, IndexedQuadIndices, sizeof( IndexedQuadIndices ) );
 
     ::nvn::BufferBuilder bufferBuilder{};
-    bufferBuilder.SetDefaults().SetDevice( m_Device ).SetStorage( &m_GeometryPool, 0,
-                                                                  sizeof( IndexedQuadVertices ) );
+    bufferBuilder.SetDefaults().SetDevice( m_Device ).SetStorage( &m_GeometryPool, 0, sizeof( IndexedQuadVertices ) );
     if ( !m_VertexBuffer.Initialize( &bufferBuilder ) )
     {
       return false;
@@ -272,41 +284,49 @@ namespace apollo::render::nvn
       diagnostics::Write( diagnostics::Level::Error, "Invalid RGBA8 texture data." );
       return false;
     }
+
     size_t logicalBytes{};
     if ( !budget::Rgba8Footprint( image.width, image.height, 1, logicalBytes ) ||
          !m_TextureBudget.Acquire( budget::Resource::Texture, logicalBytes ) )
+    {
       return false;
+    }
+
     ::nvn::TextureBuilder textureBuilder{};
     textureBuilder.SetDefaults()
       .SetDevice( m_Device )
       .SetTarget( ::nvn::TextureTarget::TARGET_2D )
       .SetFormat( ::nvn::Format::RGBA8 )
       .SetSize2D( static_cast<int>( image.width ), static_cast<int>( image.height ) );
-    const size_t textureSize = textureBuilder.GetStorageSize();
+
+    const size_t textureSize      = textureBuilder.GetStorageSize();
     const size_t textureAlignment = textureBuilder.GetStorageAlignment();
-    int textureDescriptorSize{}, samplerDescriptorSize{};
-    int reservedTextures{}, reservedSamplers{};
+    int          textureDescriptorSize{}, samplerDescriptorSize{};
+    int          reservedTextures{}, reservedSamplers{};
     m_Device->GetInteger( ::nvn::DeviceInfo::TEXTURE_DESCRIPTOR_SIZE, &textureDescriptorSize );
     m_Device->GetInteger( ::nvn::DeviceInfo::SAMPLER_DESCRIPTOR_SIZE, &samplerDescriptorSize );
     m_Device->GetInteger( ::nvn::DeviceInfo::RESERVED_TEXTURE_DESCRIPTORS, &reservedTextures );
     m_Device->GetInteger( ::nvn::DeviceInfo::RESERVED_SAMPLER_DESCRIPTORS, &reservedSamplers );
-    if ( textureSize == 0 || textureAlignment == 0 || textureDescriptorSize <= 0 ||
-         samplerDescriptorSize <= 0 || reservedTextures <= 0 || reservedSamplers <= 0 )
+    if ( textureSize == 0 || textureAlignment == 0 || textureDescriptorSize <= 0 || samplerDescriptorSize <= 0 ||
+         reservedTextures <= 0 || reservedSamplers <= 0 )
     {
       return false;
     }
+
     const size_t textureDescriptorOffset = AlignUp( textureSize, static_cast<size_t>( textureDescriptorSize ) );
-    const size_t samplerDescriptorOffset = AlignUp( textureDescriptorOffset +
-      static_cast<size_t>( reservedTextures + 1 ) * textureDescriptorSize,
-      static_cast<size_t>( samplerDescriptorSize ) );
-    const size_t poolSize = AlignUp( samplerDescriptorOffset +
-      static_cast<size_t>( reservedSamplers + 1 ) * samplerDescriptorSize,
-      NVN_MEMORY_POOL_STORAGE_GRANULARITY );
+    const size_t samplerDescriptorOffset =
+      AlignUp( textureDescriptorOffset + static_cast<size_t>( reservedTextures + 1 ) * textureDescriptorSize,
+               static_cast<size_t>( samplerDescriptorSize ) );
+    const size_t poolSize =
+      AlignUp( samplerDescriptorOffset + static_cast<size_t>( reservedSamplers + 1 ) * samplerDescriptorSize,
+               NVN_MEMORY_POOL_STORAGE_GRANULARITY );
+
     m_TextureMemory = AllocateAligned( poolSize );
     if ( m_TextureMemory == nullptr )
     {
       return false;
     }
+
     m_TextureAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults()
@@ -317,41 +337,47 @@ namespace apollo::render::nvn
     {
       return false;
     }
+
     m_TextureMemoryPoolReady = true;
     textureBuilder.SetStorage( &m_TextureMemoryPool, 0 );
     if ( !m_Texture.Initialize( &textureBuilder ) )
     {
       return false;
     }
+
     m_TextureReady = true;
     ::nvn::CopyRegion region{};
-    region.width = static_cast<int>( image.width );
+    region.width  = static_cast<int>( image.width );
     region.height = static_cast<int>( image.height );
-    region.depth = 1;
+    region.depth  = 1;
     m_Texture.WriteTexelsStrided( nullptr, &region, image.pixels, image.rowPitchBytes, 0 );
 
-    if ( !m_TexturePool.Initialize( &m_TextureMemoryPool, static_cast<ptrdiff_t>( textureDescriptorOffset ),
-                                    reservedTextures + 1 ) )
+    if ( !m_TexturePool.Initialize(
+           &m_TextureMemoryPool, static_cast<ptrdiff_t>( textureDescriptorOffset ), reservedTextures + 1 ) )
     {
       return false;
     }
+
     m_TexturePoolReady = true;
     m_TexturePool.RegisterTexture( reservedTextures, &m_Texture, nullptr );
     ::nvn::SamplerBuilder samplerBuilder{};
     samplerBuilder.SetDefaults()
       .SetDevice( m_Device )
       .SetMinMagFilter( sampling.filter == TextureFilter::Linear ? ::nvn::MinFilter::LINEAR : ::nvn::MinFilter::NEAREST,
-                        sampling.filter == TextureFilter::Linear ? ::nvn::MagFilter::LINEAR : ::nvn::MagFilter::NEAREST )
-      .SetWrapMode( sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE,
-                    sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE,
-                    sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE );
+                        sampling.filter == TextureFilter::Linear ? ::nvn::MagFilter::LINEAR
+                                                                 : ::nvn::MagFilter::NEAREST )
+      .SetWrapMode(
+        sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE,
+        sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE,
+        sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE );
     if ( !m_Sampler.Initialize( &samplerBuilder ) )
     {
       return false;
     }
+
     m_SamplerReady = true;
-    if ( !m_SamplerPool.Initialize( &m_TextureMemoryPool, static_cast<ptrdiff_t>( samplerDescriptorOffset ),
-                                    reservedSamplers + 1 ) )
+    if ( !m_SamplerPool.Initialize(
+           &m_TextureMemoryPool, static_cast<ptrdiff_t>( samplerDescriptorOffset ), reservedSamplers + 1 ) )
     {
       return false;
     }
@@ -371,12 +397,12 @@ namespace apollo::render::nvn
     commands.SetScissor( 0, 0, static_cast<int>( extent.width ), static_cast<int>( extent.height ) );
     commands.SetViewport( 0, 0, static_cast<int>( extent.width ), static_cast<int>( extent.height ) );
 
-    ::nvn::BlendState blend{};
-    ::nvn::ChannelMaskState channelMask{};
-    ::nvn::ColorState color{};
+    ::nvn::BlendState        blend{};
+    ::nvn::ChannelMaskState  channelMask{};
+    ::nvn::ColorState        color{};
     ::nvn::DepthStencilState depth{};
-    ::nvn::MultisampleState multisample{};
-    ::nvn::PolygonState polygon{};
+    ::nvn::MultisampleState  multisample{};
+    ::nvn::PolygonState      polygon{};
     blend.SetDefaults();
     channelMask.SetDefaults();
     color.SetDefaults();
@@ -392,9 +418,18 @@ namespace apollo::render::nvn
     commands.BindProgram( &m_Program, ::nvn::ShaderStageBits::VERTEX | ::nvn::ShaderStageBits::FRAGMENT );
 
     ::nvn::VertexAttribState attributes[ 3 ]{};
-    attributes[ 0 ].SetDefaults().SetFormat( ::nvn::Format::RG32F, offsetof( IndexedQuadVertex, position ) ).SetStreamIndex( 0 );
-    attributes[ 1 ].SetDefaults().SetFormat( ::nvn::Format::RGB32F, offsetof( IndexedQuadVertex, color ) ).SetStreamIndex( 0 );
-    attributes[ 2 ].SetDefaults().SetFormat( ::nvn::Format::RG32F, offsetof( IndexedQuadVertex, uv ) ).SetStreamIndex( 0 );
+    attributes[ 0 ]
+      .SetDefaults()
+      .SetFormat( ::nvn::Format::RG32F, offsetof( IndexedQuadVertex, position ) )
+      .SetStreamIndex( 0 );
+    attributes[ 1 ]
+      .SetDefaults()
+      .SetFormat( ::nvn::Format::RGB32F, offsetof( IndexedQuadVertex, color ) )
+      .SetStreamIndex( 0 );
+    attributes[ 2 ]
+      .SetDefaults()
+      .SetFormat( ::nvn::Format::RG32F, offsetof( IndexedQuadVertex, uv ) )
+      .SetStreamIndex( 0 );
     ::nvn::VertexStreamState stream{};
     stream.SetDefaults().SetStride( sizeof( IndexedQuadVertex ) );
     commands.BindVertexAttribState( 3, attributes );
@@ -404,29 +439,49 @@ namespace apollo::render::nvn
     commands.BindSeparateTexture( ::nvn::ShaderStage::FRAGMENT, m_TextureBinding, m_TextureHandle );
     commands.BindSeparateSampler( ::nvn::ShaderStage::FRAGMENT, m_SamplerBinding, m_SamplerHandle );
     commands.BindVertexBuffer( 0, m_VertexBuffer.GetAddress(), m_VertexBuffer.GetSize() );
-    commands.DrawElements( ::nvn::DrawPrimitive::TRIANGLES, ::nvn::IndexType::UNSIGNED_SHORT,
-                           static_cast<int>( std::size( IndexedQuadIndices ) ), m_IndexBuffer.GetAddress() );
+    commands.DrawElements( ::nvn::DrawPrimitive::TRIANGLES,
+                           ::nvn::IndexType::UNSIGNED_SHORT,
+                           static_cast<int>( std::size( IndexedQuadIndices ) ),
+                           m_IndexBuffer.GetAddress() );
   }
 
   void NvnIndexedQuad::Shutdown() noexcept
   {
     m_Ready = false;
-    if ( m_SamplerPoolReady ) m_SamplerPool.Finalize();
-    if ( m_SamplerReady ) m_Sampler.Finalize();
-    if ( m_TexturePoolReady ) m_TexturePool.Finalize();
-    if ( m_TextureReady ) m_Texture.Finalize();
-    if ( m_TextureMemoryPoolReady ) m_TextureMemoryPool.Finalize();
+
+    if ( m_SamplerPoolReady )
+    {
+      m_SamplerPool.Finalize();
+    }
+    if ( m_SamplerReady )
+    {
+      m_Sampler.Finalize();
+    }
+    if ( m_TexturePoolReady )
+    {
+      m_TexturePool.Finalize();
+    }
+    if ( m_TextureReady )
+    {
+      m_Texture.Finalize();
+    }
+    if ( m_TextureMemoryPoolReady )
+    {
+      m_TextureMemoryPool.Finalize();
+    }
+
     std::free( m_TextureMemory );
     m_TextureAllocation.Release();
     m_TextureBudget.Release();
-    m_TextureMemory = nullptr;
-    m_SamplerPoolReady = false;
-    m_SamplerReady = false;
-    m_TexturePoolReady = false;
-    m_TextureReady = false;
+    m_TextureMemory          = nullptr;
+    m_SamplerPoolReady       = false;
+    m_SamplerReady           = false;
+    m_TexturePoolReady       = false;
+    m_TextureReady           = false;
     m_TextureMemoryPoolReady = false;
-    m_TextureBinding = -1;
-    m_SamplerBinding = -1;
+    m_TextureBinding         = -1;
+    m_SamplerBinding         = -1;
+
     if ( m_IndexReady )
     {
       m_IndexBuffer.Finalize();
@@ -435,8 +490,9 @@ namespace apollo::render::nvn
     {
       m_VertexBuffer.Finalize();
     }
-    m_IndexReady = false;
+    m_IndexReady  = false;
     m_VertexReady = false;
+
     if ( m_GeometryPoolReady )
     {
       m_GeometryPool.Finalize();
@@ -460,6 +516,6 @@ namespace apollo::render::nvn
     std::free( m_ShaderMemory );
     m_ShaderAllocation.Release();
     m_ShaderMemory = nullptr;
-    m_Device = nullptr;
+    m_Device       = nullptr;
   }
 } // namespace apollo::render::nvn

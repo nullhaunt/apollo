@@ -1,9 +1,9 @@
 #include "WindowsWindow.hpp"
 
 #if !defined( APOLLO_BUILD_RELEASE )
-  #include <imgui.h>
   #include <backends/imgui_impl_win32.h>
-  extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND, UINT, WPARAM, LPARAM );
+  #include <imgui.h>
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND, UINT, WPARAM, LPARAM );
 #endif
 
 #include <limits>

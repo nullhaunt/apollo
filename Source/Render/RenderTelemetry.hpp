@@ -33,21 +33,32 @@ namespace apollo::render::telemetry
   {
   public:
     TrackedAllocation() noexcept = default;
-    ~TrackedAllocation() noexcept { Release(); }
-    TrackedAllocation( const TrackedAllocation & ) = delete;
+    ~TrackedAllocation() noexcept
+    {
+      Release();
+    }
+    TrackedAllocation( const TrackedAllocation & )             = delete;
     TrackedAllocation & operator=( const TrackedAllocation & ) = delete;
 
     void Acquire( size_t bytes ) noexcept
     {
 #if !defined( APOLLO_BUILD_RELEASE )
       Release();
-      if ( bytes == 0 ) return;
-      m_Bytes = bytes;
+      if ( bytes == 0 )
+      {
+        return;
+      }
+      m_Bytes                = bytes;
       g_Memory.currentBytes += bytes;
       ++g_Memory.currentAllocations;
-      if ( g_Memory.currentBytes > g_Memory.peakBytes ) g_Memory.peakBytes = g_Memory.currentBytes;
+      if ( g_Memory.currentBytes > g_Memory.peakBytes )
+      {
+        g_Memory.peakBytes = g_Memory.currentBytes;
+      }
       if ( g_Memory.currentAllocations > g_Memory.peakAllocations )
+      {
         g_Memory.peakAllocations = g_Memory.currentAllocations;
+      }
 #else
       ( void )bytes;
 #endif
@@ -56,7 +67,10 @@ namespace apollo::render::telemetry
     void Release() noexcept
     {
 #if !defined( APOLLO_BUILD_RELEASE )
-      if ( m_Bytes == 0 ) return;
+      if ( m_Bytes == 0 )
+      {
+        return;
+      }
       g_Memory.currentBytes -= m_Bytes;
       --g_Memory.currentAllocations;
       m_Bytes = 0;
@@ -69,10 +83,28 @@ namespace apollo::render::telemetry
 #endif
   };
 
-  [[nodiscard]] inline MemorySnapshot GetMemory() noexcept { return g_Memory; }
-  [[nodiscard]] inline GpuTimings GetGpuTimings() noexcept { return g_GpuTimings; }
-  [[nodiscard]] inline bool IsGpuTimingAvailable() noexcept { return g_GpuTimingAvailable; }
-  inline void SetGpuTimings( GpuTimings timings ) noexcept { g_GpuTimings = timings; }
-  inline void SetGpuTimingAvailable( bool available ) noexcept { g_GpuTimingAvailable = available; }
-  inline void InvalidateGpuTimings() noexcept { g_GpuTimings = {}; }
+  [[nodiscard]] inline MemorySnapshot GetMemory() noexcept
+  {
+    return g_Memory;
+  }
+  [[nodiscard]] inline GpuTimings GetGpuTimings() noexcept
+  {
+    return g_GpuTimings;
+  }
+  [[nodiscard]] inline bool IsGpuTimingAvailable() noexcept
+  {
+    return g_GpuTimingAvailable;
+  }
+  inline void SetGpuTimings( GpuTimings timings ) noexcept
+  {
+    g_GpuTimings = timings;
+  }
+  inline void SetGpuTimingAvailable( bool available ) noexcept
+  {
+    g_GpuTimingAvailable = available;
+  }
+  inline void InvalidateGpuTimings() noexcept
+  {
+    g_GpuTimings = {};
+  }
 } // namespace apollo::render::telemetry

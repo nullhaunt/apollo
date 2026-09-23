@@ -24,7 +24,7 @@ namespace
 #if defined( APOLLO_PLATFORM_WINDOWS )
   [[nodiscard]] bool ReadBudgetOverride( const char * name, size_t & bytes, bool & provided ) noexcept
   {
-    char value[ 32 ]{};
+    char        value[ 32 ]{};
     const DWORD length = GetEnvironmentVariableA( name, value, sizeof( value ) );
     if ( length == 0 )
     {
@@ -32,11 +32,17 @@ namespace
       return !provided;
     }
     provided = true;
-    if ( length >= sizeof( value ) ) return false;
+    if ( length >= sizeof( value ) )
+    {
+      return false;
+    }
     unsigned long long parsed{};
-    const auto result = std::from_chars( value, value + length, parsed );
+    const auto         result = std::from_chars( value, value + length, parsed );
     if ( result.ec != std::errc{} || result.ptr != value + length || parsed == 0 ||
-         parsed > std::numeric_limits<size_t>::max() ) return false;
+         parsed > std::numeric_limits<size_t>::max() )
+    {
+      return false;
+    }
     bytes = static_cast<size_t>( parsed );
     return true;
   }
@@ -47,8 +53,9 @@ namespace
     // A deliberately small pressure profile for this renderer slice. It is
     // not an estimate of Switch application memory.
     apollo::render::budget::Profile profile{ 32 * MiB, 48 * MiB };
-    size_t nxAvailable{};
-    bool nxProvided{}, softProvided{}, hardProvided{};
+    size_t                          nxAvailable{};
+    bool                            nxProvided{}, softProvided{}, hardProvided{};
+
     if ( !ReadBudgetOverride( "APOLLO_NX_APP_AVAILABLE_BYTES", nxAvailable, nxProvided ) )
     {
       apollo::diagnostics::Write( apollo::diagnostics::Level::Error, "Invalid NX application memory reference." );
@@ -60,28 +67,43 @@ namespace
       profile.softBytes = nxAvailable / 100 * 75 + nxAvailable % 100 * 75 / 100;
       profile.hardBytes = nxAvailable / 100 * 85 + nxAvailable % 100 * 85 / 100;
     }
+
     if ( !ReadBudgetOverride( "APOLLO_RENDER_SOFT_BYTES", profile.softBytes, softProvided ) ||
          !ReadBudgetOverride( "APOLLO_RENDER_HARD_BYTES", profile.hardBytes, hardProvided ) )
     {
       apollo::diagnostics::Write( apollo::diagnostics::Level::Error, "Invalid PC renderer budget override." );
       return false;
     }
+
     if ( hardProvided && !softProvided )
+    {
       profile.softBytes = profile.hardBytes / 4 * 3 + profile.hardBytes % 4 * 3 / 4;
+    }
     if ( softProvided && !hardProvided && profile.softBytes > profile.hardBytes )
+    {
       profile.hardBytes = profile.softBytes;
+    }
+
     if ( profile.hardBytes == 0 || !apollo::render::budget::Configure( profile ) )
     {
       apollo::diagnostics::Write( apollo::diagnostics::Level::Error, "Invalid PC renderer budget profile." );
       return false;
     }
-    if ( nxProvided ) apollo::render::budget::SetApplicationAvailableBytes( nxAvailable );
+
+    if ( nxProvided )
+    {
+      apollo::render::budget::SetApplicationAvailableBytes( nxAvailable );
+    }
+
     char message[ 160 ]{};
-    std::snprintf( message, sizeof( message ), "PC renderer logical budget: soft %llu, hard %llu bytes%s.",
+    std::snprintf( message,
+                   sizeof( message ),
+                   "PC renderer logical budget: soft %llu, hard %llu bytes%s.",
                    static_cast<unsigned long long>( profile.softBytes ),
                    static_cast<unsigned long long>( profile.hardBytes ),
-                   softProvided || hardProvided ? " (override)" :
-                   nxProvided ? " (NX available reference)" : " (stress profile)" );
+                   softProvided || hardProvided ? " (override)"
+                   : nxProvided                 ? " (NX available reference)"
+                                                : " (stress profile)" );
     apollo::diagnostics::Write( apollo::diagnostics::Level::Information, message );
     return true;
   }
@@ -165,9 +187,9 @@ namespace apollo
         }
       }
 
-#if !defined( APOLLO_BUILD_RELEASE )
+  #if !defined( APOLLO_BUILD_RELEASE )
       m_DebugUi.BeginFrame( { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false );
-#endif
+  #endif
       const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
       if ( frame == render::Result::SurfaceOutOfDate )
       {
@@ -191,7 +213,7 @@ namespace apollo
     while ( true )
     {
       nn::oe::Message message{};
-      bool exitRequested{};
+      bool            exitRequested{};
       while ( nn::oe::TryPopNotificationMessage( &message ) )
       {
         if ( message == nn::oe::MessageExitRequest )
@@ -204,17 +226,17 @@ namespace apollo
         break;
       }
 
-      const bool handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
-      const render::Extent2D extent = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
+      const bool             handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
+      const render::Extent2D extent   = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
       if ( !m_NvnPresenter.Resize( extent ) )
       {
         diagnostics::Write( diagnostics::Level::Error, "NVN presentation resize failed." );
         Shutdown();
         return ApplicationExitStatus::PlatformFailure;
       }
-#if !defined( APOLLO_BUILD_RELEASE )
+  #if !defined( APOLLO_BUILD_RELEASE )
       m_DebugUi.BeginFrame( extent, m_MiiCatalog, m_MiiResources, m_MiiModel.IsReady() );
-#endif
+  #endif
       if ( m_NvnPresenter.PresentFrame() != render::Result::Success )
       {
         diagnostics::Write( diagnostics::Level::Error, "NVN presentation failed." );
@@ -237,29 +259,36 @@ namespace apollo
     diagnostics::Write( diagnostics::Level::Information, "Starting Apollo." );
     diagnostics::Write( diagnostics::Level::Information, "Platform: ", platform::CurrentTargetName );
     diagnostics::Write( diagnostics::Level::Information, "Configuration: ", build::CurrentConfigurationName );
+
     // Catalog failure is reported, but does not prevent the renderer checkpoint from running.
-    (void)m_MiiCatalog.Load();
+    ( void )m_MiiCatalog.Load();
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
-    if ( !ConfigurePcRenderBudget() ) return false;
+    if ( !ConfigurePcRenderBudget() )
+    {
+      return false;
+    }
+
     if ( !m_Window.Create( L"Apollo", { 1280, 720 } ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "Windows window creation failed." );
       return false;
     }
     diagnostics::Write( diagnostics::Level::Information, "Windows window opened." );
+
     if ( !m_Vulkan.Initialize( m_Window.GetNativeHandle() ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "Vulkan context initialization failed." );
       return false;
     }
-#if !defined( APOLLO_BUILD_RELEASE )
+  #if !defined( APOLLO_BUILD_RELEASE )
     if ( !m_DebugUi.Initialize( m_Window.GetNativeHandle() ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "Debug UI initialization failed." );
       return false;
     }
-#endif
+  #endif
+
     const platform::ClientExtent extent = m_Window.GetClientExtent();
     if ( !m_Swapchain.Initialize( m_Vulkan, { extent.width, extent.height } ) ||
          !m_Presenter.Initialize( m_Vulkan, m_Swapchain ) )
@@ -269,30 +298,37 @@ namespace apollo
     }
     m_PresentationReady = true;
 #elif defined( APOLLO_PLATFORM_NX )
-    if ( !render::budget::Configure( {} ) ) return false;
+    if ( !render::budget::Configure( {} ) )
+    {
+      return false;
+    }
+
     nn::os::MemoryInfo memoryInfo{};
     nn::os::QueryMemoryInfo( &memoryInfo );
     render::budget::SetApplicationAvailableBytes( memoryInfo.totalAvailableMemorySize );
     char memoryMessage[ 128 ]{};
-    std::snprintf( memoryMessage, sizeof( memoryMessage ),
+    std::snprintf( memoryMessage,
+                   sizeof( memoryMessage ),
                    "NX application memory available: %llu bytes; 85%% target: %llu bytes.",
                    static_cast<unsigned long long>( memoryInfo.totalAvailableMemorySize ),
                    static_cast<unsigned long long>( memoryInfo.totalAvailableMemorySize * 85 / 100 ) );
     diagnostics::Write( diagnostics::Level::Information, memoryMessage );
+
     if ( !m_Nvn.Initialize() )
     {
       diagnostics::Write( diagnostics::Level::Error, "NVN context initialization failed." );
       return false;
     }
-#if !defined( APOLLO_BUILD_RELEASE )
+  #if !defined( APOLLO_BUILD_RELEASE )
     if ( !m_DebugUi.Initialize() )
     {
       diagnostics::Write( diagnostics::Level::Error, "Debug UI initialization failed." );
       return false;
     }
-#endif
-    const bool handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
-    const render::Extent2D extent = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
+  #endif
+
+    const bool             handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
+    const render::Extent2D extent   = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
     if ( !m_NvnPresenter.Initialize( m_Nvn, extent ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "NVN presentation initialization failed." );
@@ -302,11 +338,14 @@ namespace apollo
 
     // Resource loading is a separate feasibility checkpoint; rendering can run
     // and report its failure without these optional Mii inputs.
-    (void)m_MiiResources.Load();
+    ( void )m_MiiResources.Load();
 #if defined( APOLLO_PLATFORM_NX )
     if ( const mii::Entry * first = m_MiiCatalog.Get( 0 ); first != nullptr && m_MiiResources.IsReady() )
-      (void)m_MiiModel.Initialize( m_Nvn, m_MiiResources, *first );
+    {
+      ( void )m_MiiModel.Initialize( m_Nvn, m_MiiResources, *first );
+    }
 #endif
+
     m_State = State::Initialized;
     diagnostics::Write( diagnostics::Level::Information, "Initialization complete." );
     return true;
@@ -324,24 +363,26 @@ namespace apollo
 #if defined( APOLLO_PLATFORM_WINDOWS )
     m_PresentationReady = false;
     m_Presenter.Shutdown();
-#if !defined( APOLLO_BUILD_RELEASE )
+  #if !defined( APOLLO_BUILD_RELEASE )
     m_DebugUi.Shutdown();
-#endif
+  #endif
     m_Swapchain.Shutdown();
     m_Vulkan.Shutdown();
     m_Window.Destroy();
 #elif defined( APOLLO_PLATFORM_NX )
     m_MiiModel.Shutdown();
     m_NvnPresenter.Shutdown();
-#if !defined( APOLLO_BUILD_RELEASE )
+  #if !defined( APOLLO_BUILD_RELEASE )
     m_DebugUi.Shutdown();
-#endif
+  #endif
     m_Nvn.Shutdown();
 #endif
 
     m_MiiResources.Clear();
     if ( render::budget::GetSnapshot().currentBytes != 0 )
+    {
       diagnostics::Write( diagnostics::Level::Error, "Renderer logical budget reservations remain at shutdown." );
+    }
 
     diagnostics::Write( diagnostics::Level::Information, "Shutdown complete." );
     m_State = State::Stopped;
