@@ -284,7 +284,9 @@ namespace apollo::render::vulkan
     vk::AttachmentDescription color{};
     color.format         = m_Format;
     color.samples        = vk::SampleCountFlagBits::e1;
-    color.loadOp         = vk::AttachmentLoadOp::eClear;
+    // Apollo clears explicitly inside the pass so the GPU timestamp after
+    // the clear has a well-defined operation to measure.
+    color.loadOp         = vk::AttachmentLoadOp::eDontCare;
     color.storeOp        = vk::AttachmentStoreOp::eStore;
     color.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
     color.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;

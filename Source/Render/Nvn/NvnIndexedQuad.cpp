@@ -178,6 +178,7 @@ namespace apollo::render::nvn
     {
       return false;
     }
+    m_ShaderAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults()
       .SetDevice( m_Device )
@@ -224,6 +225,7 @@ namespace apollo::render::nvn
     {
       return false;
     }
+    m_GeometryAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults()
       .SetDevice( m_Device )
@@ -298,6 +300,7 @@ namespace apollo::render::nvn
     {
       return false;
     }
+    m_TextureAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults()
       .SetDevice( m_Device )
@@ -407,6 +410,7 @@ namespace apollo::render::nvn
     if ( m_TextureReady ) m_Texture.Finalize();
     if ( m_TextureMemoryPoolReady ) m_TextureMemoryPool.Finalize();
     std::free( m_TextureMemory );
+    m_TextureAllocation.Release();
     m_TextureMemory = nullptr;
     m_SamplerPoolReady = false;
     m_SamplerReady = false;
@@ -431,6 +435,7 @@ namespace apollo::render::nvn
     }
     m_GeometryPoolReady = false;
     std::free( m_GeometryMemory );
+    m_GeometryAllocation.Release();
     m_GeometryMemory = nullptr;
 
     if ( m_ProgramReady )
@@ -444,6 +449,7 @@ namespace apollo::render::nvn
     }
     m_ShaderPoolReady = false;
     std::free( m_ShaderMemory );
+    m_ShaderAllocation.Release();
     m_ShaderMemory = nullptr;
     m_Device = nullptr;
   }

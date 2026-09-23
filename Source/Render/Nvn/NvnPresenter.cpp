@@ -7,6 +7,7 @@
 #endif
 
 #include <cstdlib>
+#include <cstdio>
 
 namespace apollo::render::nvn
 {
@@ -68,6 +69,15 @@ namespace apollo::render::nvn
     }
     m_SyncReady = true;
 
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( !CreateGpuCounters() )
+    {
+      LogFailure( "NVN GPU counter storage initialization failed." );
+      Shutdown();
+      return false;
+    }
+#endif
+
     if ( !m_IndexedQuad.Initialize( context ) )
     {
       LogFailure( "NVN indexed geometry initialization failed." );
@@ -105,6 +115,10 @@ namespace apollo::render::nvn
     }
 
     m_Queue->Finish();
+#if !defined( APOLLO_BUILD_RELEASE )
+    for ( bool & pending : m_CounterPending ) pending = false;
+    telemetry::InvalidateGpuTimings();
+#endif
     DestroyImages();
     if ( !CreateImages( extent ) )
     {
@@ -137,6 +151,9 @@ namespace apollo::render::nvn
       LogFailure( "NVN backbuffer release wait failed." );
       return Result::Failure;
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    ReadGpuCounters( textureIndex );
+#endif
 
     ::nvn::CommandBuffer & commands = m_FrameBuffers[ textureIndex ];
     // AcquireTexture's release sync has completed for this backbuffer. Reattach its
@@ -146,13 +163,24 @@ namespace apollo::render::nvn
                                CommandMemoryPerBuffer );
     commands.AddControlMemory( m_ControlMemory[ textureIndex ], ControlMemoryPerBuffer );
     commands.BeginRecording();
+#if !defined( APOLLO_BUILD_RELEASE )
+    const ::nvn::BufferAddress counterBase = m_CounterPool.GetBufferAddress() +
+      m_CounterStride * textureIndex;
+    commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase );
+#endif
     ::nvn::Texture * target = &m_Textures[ textureIndex ];
     commands.SetRenderTargets( 1, &target, nullptr, nullptr, nullptr );
     // NVN clears are clipped by the current scissor. The previous ImGui pass
     // leaves its last panel clip active on this command buffer.
     commands.SetScissor( 0, 0, static_cast<int>( m_Extent.width ), static_cast<int>( m_Extent.height ) );
     commands.ClearColor( 0, ClearColor, ::nvn::ClearColorMask::RGBA );
+#if !defined( APOLLO_BUILD_RELEASE )
+    commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + sizeof( ::nvn::CounterData ) );
+#endif
     m_IndexedQuad.RecordDraw( commands, m_Extent );
+#if !defined( APOLLO_BUILD_RELEASE )
+    commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + 2 * sizeof( ::nvn::CounterData ) );
+#endif
 #if !defined( APOLLO_BUILD_RELEASE )
     const ImDrawData * drawData = ImGui::GetDrawData();
     if ( m_DebugUiRenderer.Upload( drawData, textureIndex, m_Extent ) )
@@ -160,12 +188,70 @@ namespace apollo::render::nvn
       m_DebugUiRenderer.RecordDraw( commands, drawData, textureIndex, m_Extent );
     }
 #endif
+#if !defined( APOLLO_BUILD_RELEASE )
+    commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + 3 * sizeof( ::nvn::CounterData ) );
+#endif
     m_FrameCommands[ textureIndex ] = commands.EndRecording();
 
     m_Queue->SubmitCommands( 1, &m_FrameCommands[ textureIndex ] );
     m_Queue->PresentTexture( &m_Window, textureIndex );
+#if !defined( APOLLO_BUILD_RELEASE )
+    m_CounterPending[ textureIndex ] = true;
+#endif
     return Result::Success;
   }
+
+#if !defined( APOLLO_BUILD_RELEASE )
+  bool NvnPresenter::CreateGpuCounters() noexcept
+  {
+    int alignment{};
+    m_Device->GetInteger( ::nvn::DeviceInfo::COUNTER_ALIGNMENT, &alignment );
+    if ( alignment <= 0 ) return false;
+    m_CounterStride = AlignUp( 4 * sizeof( ::nvn::CounterData ), static_cast<size_t>( alignment ) );
+    const size_t poolSize = AlignUp( m_CounterStride * BackbufferCount,
+                                     NVN_MEMORY_POOL_STORAGE_GRANULARITY );
+    m_CounterMemory = AllocateAligned( NVN_MEMORY_POOL_STORAGE_ALIGNMENT, poolSize );
+    if ( m_CounterMemory == nullptr ) return false;
+    m_CounterAllocation.Acquire( poolSize );
+    ::nvn::MemoryPoolBuilder builder{};
+    builder.SetDefaults().SetDevice( m_Device )
+      .SetFlags( ::nvn::MemoryPoolFlags::CPU_UNCACHED | ::nvn::MemoryPoolFlags::GPU_UNCACHED )
+      .SetStorage( m_CounterMemory, poolSize );
+    if ( !m_CounterPool.Initialize( &builder ) ) return false;
+    m_CounterPoolReady = true;
+    m_CounterReports = static_cast<::nvn::CounterData *>( m_CounterPool.Map() );
+    telemetry::SetGpuTimingAvailable( m_CounterReports != nullptr );
+    return m_CounterReports != nullptr;
+  }
+
+  void NvnPresenter::ReadGpuCounters( int backbuffer ) noexcept
+  {
+    if ( !m_CounterPending[ backbuffer ] ) return;
+    m_CounterPending[ backbuffer ] = false;
+    const auto * reports = reinterpret_cast<const ::nvn::CounterData *>(
+      reinterpret_cast<const unsigned char *>( m_CounterReports ) + m_CounterStride * backbuffer );
+    const u64 t0 = m_Device->GetTimestampInNanoseconds( &reports[ 0 ] );
+    const u64 t1 = m_Device->GetTimestampInNanoseconds( &reports[ 1 ] );
+    const u64 t2 = m_Device->GetTimestampInNanoseconds( &reports[ 2 ] );
+    const u64 t3 = m_Device->GetTimestampInNanoseconds( &reports[ 3 ] );
+    if ( t0 > t1 || t1 > t2 || t2 > t3 )
+    {
+      telemetry::InvalidateGpuTimings();
+      return;
+    }
+    constexpr double scale = 1.0 / 1000000.0;
+    telemetry::SetGpuTimings( { true, ( t1 - t0 ) * scale, ( t2 - t1 ) * scale,
+                               ( t3 - t2 ) * scale, ( t3 - t0 ) * scale } );
+    if ( !m_FirstTimingReported )
+    {
+      char message[ 128 ]{};
+      std::snprintf( message, sizeof( message ), "NVN GPU timestamps active: %.3f ms first frame.",
+                     ( t3 - t0 ) * scale );
+      diagnostics::Write( diagnostics::Level::Information, message );
+      m_FirstTimingReported = true;
+    }
+  }
+#endif
 
   void NvnPresenter::Shutdown() noexcept
   {
@@ -174,6 +260,19 @@ namespace apollo::render::nvn
       m_Queue->Finish();
     }
     DestroyImages();
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( m_CounterPoolReady ) m_CounterPool.Finalize();
+    m_CounterPoolReady = false;
+    m_CounterReports = nullptr;
+    std::free( m_CounterMemory );
+    m_CounterMemory = nullptr;
+    m_CounterAllocation.Release();
+    m_CounterStride = 0;
+    for ( bool & pending : m_CounterPending ) pending = false;
+    m_FirstTimingReported = false;
+    telemetry::InvalidateGpuTimings();
+    telemetry::SetGpuTimingAvailable( false );
+#endif
 #if !defined( APOLLO_BUILD_RELEASE )
     m_DebugUiRenderer.Shutdown();
 #endif
@@ -232,6 +331,7 @@ namespace apollo::render::nvn
     {
       return false;
     }
+    m_TextureAllocation.Acquire( poolSize );
 
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults()
@@ -280,6 +380,7 @@ namespace apollo::render::nvn
       DestroyImages();
       return false;
     }
+    m_CommandAllocation.Acquire( commandPoolSize );
     poolBuilder.SetDefaults()
       .SetDevice( m_Device )
       .SetFlags( ::nvn::MemoryPoolFlags::CPU_UNCACHED | ::nvn::MemoryPoolFlags::GPU_UNCACHED )
@@ -306,6 +407,7 @@ namespace apollo::render::nvn
         DestroyImages();
         return false;
       }
+      m_ControlAllocations[ index ].Acquire( ControlMemoryPerBuffer );
       m_FrameBufferReady[ index ] = true;
       m_FrameBuffers[ index ].AddCommandMemory( &m_CommandPool, CommandMemoryPerBuffer * index,
                                                CommandMemoryPerBuffer );
@@ -328,6 +430,7 @@ namespace apollo::render::nvn
         m_FrameBufferReady[ index ] = false;
       }
       std::free( m_ControlMemory[ index ] );
+      m_ControlAllocations[ index ].Release();
       m_ControlMemory[ index ] = nullptr;
       m_FrameCommands[ index ] = {};
     }
@@ -337,6 +440,7 @@ namespace apollo::render::nvn
       m_CommandPoolReady = false;
     }
     std::free( m_CommandMemory );
+    m_CommandAllocation.Release();
     m_CommandMemory = nullptr;
 
     if ( m_WindowReady )
@@ -358,6 +462,7 @@ namespace apollo::render::nvn
       m_TexturePoolReady = false;
     }
     std::free( m_TextureMemory );
+    m_TextureAllocation.Release();
     m_TextureMemory = nullptr;
     m_Extent        = {};
   }

@@ -116,6 +116,9 @@
     <ClInclude Include="Source\Render\RenderTypes.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Render\RenderTelemetry.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Render\IndexedQuad.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -5,6 +5,7 @@
 #endif
 
 #include "Render/RenderTypes.hpp"
+#include "Render/RenderTelemetry.hpp"
 #include "Render/TextureData.hpp"
 
 #include <memory>
@@ -33,10 +34,14 @@ namespace apollo::render::vulkan
   private:
     [[nodiscard]] bool   CreateCommands() noexcept;
     [[nodiscard]] bool   CreateSynchronization() noexcept;
+#if !defined( APOLLO_BUILD_RELEASE )
+    void                 ReadGpuTimings() noexcept;
+#endif
     [[nodiscard]] bool   CreateGeometry() noexcept;
     [[nodiscard]] bool   CreateTexture( Rgba8ImageView image, TextureSamplerDesc sampling ) noexcept;
     [[nodiscard]] bool   CreateHostBuffer( vk::DeviceSize size, vk::BufferUsageFlags usage, const void * data,
-                                           vk::Buffer & buffer, vk::DeviceMemory & memory ) noexcept;
+                                           vk::Buffer & buffer, vk::DeviceMemory & memory,
+                                           telemetry::TrackedAllocation & tracked ) noexcept;
     [[nodiscard]] bool   CreatePipeline() noexcept;
     [[nodiscard]] bool   RecordFrame( u32 imageIndex, ClearColor color ) noexcept;
     [[nodiscard]] Result AcquireImage( u32 & imageIndex, bool & suboptimal ) noexcept;
@@ -52,14 +57,25 @@ namespace apollo::render::vulkan
     std::unique_ptr<vk::Semaphore[]> m_RenderFinished{};
     u32                              m_RenderFinishedCount{};
     vk::Fence                        m_FrameFence{};
+#if !defined( APOLLO_BUILD_RELEASE )
+    vk::QueryPool                    m_TimestampQueries{};
+    double                           m_TimestampPeriodNs{};
+    u64                              m_TimestampMask{};
+    bool                             m_TimestampPending{};
+    bool                             m_FirstTimingReported{};
+#endif
     vk::Buffer                       m_VertexBuffer{};
     vk::DeviceMemory                 m_VertexMemory{};
+    telemetry::TrackedAllocation     m_VertexAllocation{};
     vk::Buffer                       m_IndexBuffer{};
     vk::DeviceMemory                 m_IndexMemory{};
+    telemetry::TrackedAllocation     m_IndexAllocation{};
     vk::Buffer                       m_TextureStagingBuffer{};
     vk::DeviceMemory                 m_TextureStagingMemory{};
+    telemetry::TrackedAllocation     m_StagingAllocation{};
     vk::Image                        m_TextureImage{};
     vk::DeviceMemory                 m_TextureMemory{};
+    telemetry::TrackedAllocation     m_TextureAllocation{};
     vk::ImageView                    m_TextureView{};
     vk::Sampler                      m_TextureSampler{};
     vk::DescriptorSetLayout          m_TextureSetLayout{};

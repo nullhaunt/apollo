@@ -6,6 +6,7 @@
 
 #include <nvn/nvn_Cpp.h>
 #include <nvn/nvn_CppMethods.h>
+#include "Render/RenderTelemetry.hpp"
 
 namespace apollo::render::nvn
 {
@@ -31,6 +32,7 @@ namespace apollo::render::nvn
     ::nvn::Device m_Device{};
     ::nvn::Queue  m_Queue{};
     void *        m_QueueMemory{};
+    telemetry::TrackedAllocation m_QueueAllocation{};
     bool          m_DeviceReady{};
     bool          m_QueueReady{};
   };

@@ -149,14 +149,68 @@ namespace apollo::render::vulkan
       bootstrap::LogFailure( "vkCreateFence", result );
       return false;
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    const auto queues = m_Context->GetPhysicalDevice().getQueueFamilyProperties();
+    if ( m_Context->GetGraphicsFamily() < queues.size() &&
+         queues[ m_Context->GetGraphicsFamily() ].timestampValidBits != 0 )
+    {
+      vk::PhysicalDeviceProperties properties{};
+      m_Context->GetPhysicalDevice().getProperties( &properties );
+      m_TimestampPeriodNs = properties.limits.timestampPeriod;
+      const u32 validBits = queues[ m_Context->GetGraphicsFamily() ].timestampValidBits;
+      m_TimestampMask = validBits == 64 ? std::numeric_limits<u64>::max() : ( u64{ 1 } << validBits ) - 1;
+      vk::QueryPoolCreateInfo queryInfo{};
+      queryInfo.queryType = vk::QueryType::eTimestamp;
+      queryInfo.queryCount = 4;
+      result = device.createQueryPool( &queryInfo, nullptr, &m_TimestampQueries );
+      if ( result != vk::Result::eSuccess )
+      {
+        bootstrap::LogFailure( "vkCreateQueryPool", result );
+        m_TimestampPeriodNs = 0.0;
+        m_TimestampMask = 0;
+      }
+    }
+    telemetry::SetGpuTimingAvailable( static_cast<bool>( m_TimestampQueries ) );
+#endif
     return true;
   }
+
+#if !defined( APOLLO_BUILD_RELEASE )
+  void VulkanPresenter::ReadGpuTimings() noexcept
+  {
+    if ( !m_TimestampPending || !m_TimestampQueries ) return;
+    u64 ticks[ 4 ]{};
+    const vk::Result result = m_Context->GetDevice().getQueryPoolResults(
+      m_TimestampQueries, 0, 4, sizeof( ticks ), ticks, sizeof( u64 ), vk::QueryResultFlagBits::e64 );
+    m_TimestampPending = false;
+    if ( result != vk::Result::eSuccess )
+    {
+      telemetry::InvalidateGpuTimings();
+      return;
+    }
+    constexpr double NanosecondsToMilliseconds = 1.0 / 1000000.0;
+    const double scale = m_TimestampPeriodNs * NanosecondsToMilliseconds;
+    const double clear = ( ( ticks[ 1 ] - ticks[ 0 ] ) & m_TimestampMask ) * scale;
+    const double quad = ( ( ticks[ 2 ] - ticks[ 1 ] ) & m_TimestampMask ) * scale;
+    const double ui = ( ( ticks[ 3 ] - ticks[ 2 ] ) & m_TimestampMask ) * scale;
+    telemetry::SetGpuTimings( { true, clear, quad, ui, clear + quad + ui } );
+    if ( !m_FirstTimingReported )
+    {
+      char message[ 128 ]{};
+      std::snprintf( message, sizeof( message ), "Vulkan GPU timestamps active: %.3f ms first frame.",
+                     clear + quad + ui );
+      diagnostics::Write( diagnostics::Level::Information, message );
+      m_FirstTimingReported = true;
+    }
+  }
+#endif
 
   bool VulkanPresenter::CreateHostBuffer( vk::DeviceSize size,
                                           vk::BufferUsageFlags usage,
                                           const void * data,
                                           vk::Buffer & buffer,
-                                          vk::DeviceMemory & memory ) noexcept
+                                          vk::DeviceMemory & memory,
+                                          telemetry::TrackedAllocation & tracked ) noexcept
   {
     const vk::Device device = m_Context->GetDevice();
     vk::BufferCreateInfo bufferInfo{};
@@ -200,6 +254,7 @@ namespace apollo::render::vulkan
       bootstrap::LogFailure( "vkAllocateMemory", result );
       return false;
     }
+    tracked.Acquire( static_cast<size_t>( allocation.allocationSize ) );
     result = device.bindBufferMemory( buffer, memory, 0 );
     if ( result != vk::Result::eSuccess )
     {
@@ -222,9 +277,9 @@ namespace apollo::render::vulkan
   bool VulkanPresenter::CreateGeometry() noexcept
   {
     return CreateHostBuffer( sizeof( IndexedQuadVertices ), vk::BufferUsageFlagBits::eVertexBuffer,
-                             IndexedQuadVertices, m_VertexBuffer, m_VertexMemory ) &&
+                             IndexedQuadVertices, m_VertexBuffer, m_VertexMemory, m_VertexAllocation ) &&
            CreateHostBuffer( sizeof( IndexedQuadIndices ), vk::BufferUsageFlagBits::eIndexBuffer,
-                             IndexedQuadIndices, m_IndexBuffer, m_IndexMemory );
+                             IndexedQuadIndices, m_IndexBuffer, m_IndexMemory, m_IndexAllocation );
   }
 
   bool VulkanPresenter::CreateTexture( Rgba8ImageView image, TextureSamplerDesc sampling ) noexcept
@@ -236,7 +291,7 @@ namespace apollo::render::vulkan
     }
     const vk::Device device = m_Context->GetDevice();
     if ( !CreateHostBuffer( image.byteCount, vk::BufferUsageFlagBits::eTransferSrc,
-                           image.pixels, m_TextureStagingBuffer, m_TextureStagingMemory ) )
+                           image.pixels, m_TextureStagingBuffer, m_TextureStagingMemory, m_StagingAllocation ) )
     {
       return false;
     }
@@ -285,6 +340,7 @@ namespace apollo::render::vulkan
       bootstrap::LogFailure( "vkAllocateMemory(texture)", result );
       return false;
     }
+    m_TextureAllocation.Acquire( static_cast<size_t>( allocation.allocationSize ) );
     result = device.bindImageMemory( m_TextureImage, m_TextureMemory, 0 );
     if ( result != vk::Result::eSuccess )
     {
@@ -346,6 +402,7 @@ namespace apollo::render::vulkan
     }
     device.destroyBuffer( m_TextureStagingBuffer );
     device.freeMemory( m_TextureStagingMemory );
+    m_StagingAllocation.Release();
     m_TextureStagingBuffer = nullptr;
     m_TextureStagingMemory = nullptr;
 
@@ -543,6 +600,13 @@ namespace apollo::render::vulkan
       bootstrap::LogFailure( "vkBeginCommandBuffer", result );
       return false;
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( m_TimestampQueries )
+    {
+      m_CommandBuffer.resetQueryPool( m_TimestampQueries, 0, 4 );
+      m_CommandBuffer.writeTimestamp( vk::PipelineStageFlagBits::eTopOfPipe, m_TimestampQueries, 0 );
+    }
+#endif
 
     vk::ClearValue clear{};
     clear.color.float32[ 0 ] = color.red;
@@ -554,9 +618,19 @@ namespace apollo::render::vulkan
     passInfo.renderPass        = m_Swapchain->GetRenderPass();
     passInfo.framebuffer       = m_Swapchain->GetFramebuffer( imageIndex );
     passInfo.renderArea.extent = m_Swapchain->GetExtent();
-    passInfo.clearValueCount   = 1;
-    passInfo.pClearValues      = &clear;
     m_CommandBuffer.beginRenderPass( &passInfo, vk::SubpassContents::eInline );
+    vk::ClearAttachment clearAttachment{};
+    clearAttachment.aspectMask = vk::ImageAspectFlagBits::eColor;
+    clearAttachment.colorAttachment = 0;
+    clearAttachment.clearValue = clear;
+    vk::ClearRect clearRect{};
+    clearRect.rect.extent = m_Swapchain->GetExtent();
+    clearRect.layerCount = 1;
+    m_CommandBuffer.clearAttachments( 1, &clearAttachment, 1, &clearRect );
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( m_TimestampQueries )
+      m_CommandBuffer.writeTimestamp( vk::PipelineStageFlagBits::eBottomOfPipe, m_TimestampQueries, 1 );
+#endif
     const vk::Extent2D extent = m_Swapchain->GetExtent();
     const vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>( extent.width ),
                                  static_cast<float>( extent.height ), 0.0f, 1.0f };
@@ -571,12 +645,20 @@ namespace apollo::render::vulkan
     m_CommandBuffer.bindIndexBuffer( m_IndexBuffer, 0, vk::IndexType::eUint16 );
     m_CommandBuffer.drawIndexed( static_cast<u32>( std::size( IndexedQuadIndices ) ), 1, 0, 0, 0 );
 #if !defined( APOLLO_BUILD_RELEASE )
+    if ( m_TimestampQueries )
+      m_CommandBuffer.writeTimestamp( vk::PipelineStageFlagBits::eBottomOfPipe, m_TimestampQueries, 2 );
+#endif
+#if !defined( APOLLO_BUILD_RELEASE )
     if ( m_ImGuiReady )
     {
       ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), static_cast<VkCommandBuffer>( m_CommandBuffer ) );
     }
 #endif
     m_CommandBuffer.endRenderPass();
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( m_TimestampQueries )
+      m_CommandBuffer.writeTimestamp( vk::PipelineStageFlagBits::eBottomOfPipe, m_TimestampQueries, 3 );
+#endif
 
     result = m_CommandBuffer.end();
     if ( result != vk::Result::eSuccess )
@@ -623,6 +705,9 @@ namespace apollo::render::vulkan
     {
       return MapFailure( "vkWaitForFences", result );
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    ReadGpuTimings();
+#endif
 
     result = device.acquireNextImageKHR(
       m_Swapchain->GetHandle(), std::numeric_limits<u64>::max(), m_ImageAvailable, vk::Fence{}, &imageIndex );
@@ -661,6 +746,9 @@ namespace apollo::render::vulkan
     {
       return MapFailure( "vkQueueSubmit", result );
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    m_TimestampPending = static_cast<bool>( m_TimestampQueries );
+#endif
     return Result::Success;
   }
 
@@ -716,8 +804,10 @@ namespace apollo::render::vulkan
       if ( m_TextureView ) device.destroyImageView( m_TextureView );
       if ( m_TextureImage ) device.destroyImage( m_TextureImage );
       if ( m_TextureMemory ) device.freeMemory( m_TextureMemory );
+      m_TextureAllocation.Release();
       if ( m_TextureStagingBuffer ) device.destroyBuffer( m_TextureStagingBuffer );
       if ( m_TextureStagingMemory ) device.freeMemory( m_TextureStagingMemory );
+      m_StagingAllocation.Release();
       if ( m_FragmentShader )
       {
         device.destroyShaderModule( m_FragmentShader );
@@ -734,6 +824,7 @@ namespace apollo::render::vulkan
       {
         device.freeMemory( m_IndexMemory );
       }
+      m_IndexAllocation.Release();
       if ( m_VertexBuffer )
       {
         device.destroyBuffer( m_VertexBuffer );
@@ -742,6 +833,7 @@ namespace apollo::render::vulkan
       {
         device.freeMemory( m_VertexMemory );
       }
+      m_VertexAllocation.Release();
       if ( m_PresentedFrames != 0 )
       {
         char message[ 80 ]{};
@@ -755,6 +847,9 @@ namespace apollo::render::vulkan
       {
         device.destroyFence( m_FrameFence );
       }
+#if !defined( APOLLO_BUILD_RELEASE )
+      if ( m_TimestampQueries ) device.destroyQueryPool( m_TimestampQueries );
+#endif
       for ( u32 index = 0; index < m_RenderFinishedCount; ++index )
       {
         if ( m_RenderFinished && m_RenderFinished[ index ] )
@@ -772,6 +867,15 @@ namespace apollo::render::vulkan
       }
     }
     m_FrameFence      = nullptr;
+#if !defined( APOLLO_BUILD_RELEASE )
+    m_TimestampQueries = nullptr;
+    m_TimestampPeriodNs = 0.0;
+    m_TimestampMask = 0;
+    m_TimestampPending = false;
+    m_FirstTimingReported = false;
+    telemetry::InvalidateGpuTimings();
+    telemetry::SetGpuTimingAvailable( false );
+#endif
     m_Pipeline        = nullptr;
     m_PipelineLayout  = nullptr;
     m_DescriptorPool = nullptr;

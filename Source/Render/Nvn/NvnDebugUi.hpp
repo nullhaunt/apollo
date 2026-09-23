@@ -6,6 +6,7 @@
 
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/RenderTypes.hpp"
+#include "Render/RenderTelemetry.hpp"
 
 struct ImDrawData;
 
@@ -38,6 +39,7 @@ namespace apollo::render::nvn
     ::nvn::Device * m_Device{};
     ::nvn::MemoryPool m_ShaderPool{};
     void * m_ShaderMemory{};
+    telemetry::TrackedAllocation m_ShaderAllocation{};
     bool m_ShaderPoolReady{};
     ::nvn::Program m_Program{};
     bool m_ProgramReady{};
@@ -46,6 +48,7 @@ namespace apollo::render::nvn
 
     ::nvn::MemoryPool m_FontPool{};
     void * m_FontMemory{};
+    telemetry::TrackedAllocation m_FontAllocation{};
     bool m_FontPoolReady{};
     ::nvn::Texture m_FontTexture{};
     bool m_FontTextureReady{};
@@ -60,6 +63,7 @@ namespace apollo::render::nvn
 
     ::nvn::MemoryPool m_GeometryPool{};
     void * m_GeometryMemory{};
+    telemetry::TrackedAllocation m_GeometryAllocation{};
     bool m_GeometryPoolReady{};
     ::nvn::Buffer m_Vertices[ BackbufferCount ]{};
     ::nvn::Buffer m_Indices[ BackbufferCount ]{};

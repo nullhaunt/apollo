@@ -139,6 +139,7 @@ namespace apollo::render::nvn
                                      NVN_MEMORY_POOL_STORAGE_GRANULARITY );
     m_ShaderMemory = AllocateAligned( poolSize );
     if ( m_ShaderMemory == nullptr ) return false;
+    m_ShaderAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults().SetDevice( m_Device )
       .SetFlags( ::nvn::MemoryPoolFlags::CPU_UNCACHED | ::nvn::MemoryPoolFlags::GPU_CACHED |
@@ -186,6 +187,7 @@ namespace apollo::render::nvn
       NVN_MEMORY_POOL_STORAGE_GRANULARITY );
     m_FontMemory = AllocateAligned( poolSize );
     if ( m_FontMemory == nullptr ) return false;
+    m_FontAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults().SetDevice( m_Device )
       .SetFlags( ::nvn::MemoryPoolFlags::CPU_UNCACHED | ::nvn::MemoryPoolFlags::GPU_CACHED )
@@ -227,6 +229,7 @@ namespace apollo::render::nvn
     constexpr size_t poolSize = stride * BackbufferCount;
     m_GeometryMemory = AllocateAligned( poolSize );
     if ( m_GeometryMemory == nullptr ) return false;
+    m_GeometryAllocation.Acquire( poolSize );
     ::nvn::MemoryPoolBuilder poolBuilder{};
     poolBuilder.SetDefaults().SetDevice( m_Device )
       .SetFlags( ::nvn::MemoryPoolFlags::CPU_UNCACHED | ::nvn::MemoryPoolFlags::GPU_CACHED )
@@ -372,6 +375,7 @@ namespace apollo::render::nvn
     if ( m_GeometryPoolReady ) m_GeometryPool.Finalize();
     m_GeometryPoolReady = false;
     std::free( m_GeometryMemory );
+    m_GeometryAllocation.Release();
     m_GeometryMemory = nullptr;
     if ( m_SamplerDescriptorsReady ) m_SamplerDescriptors.Finalize();
     if ( m_SamplerReady ) m_Sampler.Finalize();
@@ -384,12 +388,14 @@ namespace apollo::render::nvn
     m_FontTextureReady = false;
     m_FontPoolReady = false;
     std::free( m_FontMemory );
+    m_FontAllocation.Release();
     m_FontMemory = nullptr;
     if ( m_ProgramReady ) m_Program.Finalize();
     if ( m_ShaderPoolReady ) m_ShaderPool.Finalize();
     m_ProgramReady = false;
     m_ShaderPoolReady = false;
     std::free( m_ShaderMemory );
+    m_ShaderAllocation.Release();
     m_ShaderMemory = nullptr;
     m_TextureBinding = -1;
     m_SamplerBinding = -1;

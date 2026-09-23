@@ -20,6 +20,7 @@ namespace apollo::render::nvn
     constexpr size_t QueueControlSize   = 64 * 1024;
 
     bool g_GraphicsReady{};
+    telemetry::TrackedAllocation g_GraphicsAllocation{};
 
     void * AllocateGraphics( size_t size, size_t alignment, void * ) noexcept
     {
@@ -54,6 +55,7 @@ namespace apollo::render::nvn
         diagnostics::Write( diagnostics::Level::Error, "Could not allocate NVN graphics memory." );
         return false;
       }
+      g_GraphicsAllocation.Acquire( GraphicsMemorySize );
 
       nv::SetGraphicsAllocator( AllocateGraphics, FreeGraphics, ReallocateGraphics, nullptr );
       nv::InitializeGraphics( memory, GraphicsMemorySize );
@@ -143,6 +145,7 @@ namespace apollo::render::nvn
       Shutdown();
       return false;
     }
+    m_QueueAllocation.Acquire( queueMemorySize );
     queueBuilder.SetQueueMemory( m_QueueMemory, queueMemorySize );
     if ( !m_Queue.Initialize( &queueBuilder ) )
     {
@@ -168,6 +171,7 @@ namespace apollo::render::nvn
     }
     std::free( m_QueueMemory );
     m_QueueMemory = nullptr;
+    m_QueueAllocation.Release();
 
     if ( m_DeviceReady )
     {

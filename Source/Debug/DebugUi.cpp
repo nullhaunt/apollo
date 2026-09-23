@@ -3,6 +3,7 @@
 #include "Core/BuildConfiguration.hpp"
 #include "Platform/Diagnostics.hpp"
 #include "Platform/Platform.hpp"
+#include "Render/RenderTelemetry.hpp"
 
 #include <imgui.h>
 
@@ -101,9 +102,9 @@ namespace apollo::debug
     ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode );
     ImGui::SetNextWindowPos( ImVec2( 20, 20 ), ImGuiCond_FirstUseEver );
 #if defined( APOLLO_PLATFORM_NX )
-    ImGui::SetNextWindowSize( ImVec2( 520, 320 ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 600, 390 ), ImGuiCond_FirstUseEver );
 #else
-    ImGui::SetNextWindowSize( ImVec2( 370, 215 ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 540, 310 ), ImGuiCond_FirstUseEver );
 #endif
     ImGui::Begin( "Apollo Diagnostics" );
     ImGui::Text( "Platform: %s", platform::CurrentTargetName );
@@ -115,7 +116,24 @@ namespace apollo::debug
     ImGui::Text( "ImGui: %s", ImGui::GetVersion() );
     ImGui::Separator();
     const float fps = ImGui::GetIO().Framerate;
-    ImGui::Text( "Frame: %.2f ms (%.1f FPS)", fps > 0.0f ? 1000.0f / fps : 0.0f, fps );
+    ImGui::Text( "CPU loop: %.2f ms (%.1f FPS)", fps > 0.0f ? 1000.0f / fps : 0.0f, fps );
+    const auto gpu = render::telemetry::GetGpuTimings();
+    if ( gpu.valid )
+    {
+      ImGui::Text( "GPU frame: %.3f ms", gpu.totalMs );
+      ImGui::Text( "Clear %.3f  Quad %.3f  UI %.3f ms", gpu.clearMs, gpu.quadMs, gpu.uiMs );
+    }
+    else
+    {
+      ImGui::TextUnformatted( render::telemetry::IsGpuTimingAvailable()
+        ? "GPU: waiting for a completed frame" : "GPU timestamps unavailable" );
+    }
+    const auto memory = render::telemetry::GetMemory();
+    ImGui::Text( "Tracked: %.2f / %.2f MiB (now / peak)",
+                 static_cast<double>( memory.currentBytes ) / ( 1024.0 * 1024.0 ),
+                 static_cast<double>( memory.peakBytes ) / ( 1024.0 * 1024.0 ) );
+    ImGui::Text( "Allocations: %u / %u (now / peak)",
+                 memory.currentAllocations, memory.peakAllocations );
 #if defined( APOLLO_PLATFORM_NX )
     ImGui::TextUnformatted( "Touch or use D-pad, A and B." );
 #endif

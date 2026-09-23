@@ -7,6 +7,7 @@
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/RenderTypes.hpp"
 #include "Render/TextureData.hpp"
+#include "Render/RenderTelemetry.hpp"
 
 namespace apollo::render::nvn
 {
@@ -32,12 +33,14 @@ namespace apollo::render::nvn
 
     ::nvn::MemoryPool m_ShaderPool{};
     void *            m_ShaderMemory{};
+    telemetry::TrackedAllocation m_ShaderAllocation{};
     bool              m_ShaderPoolReady{};
     ::nvn::Program    m_Program{};
     bool              m_ProgramReady{};
 
     ::nvn::MemoryPool m_GeometryPool{};
     void *            m_GeometryMemory{};
+    telemetry::TrackedAllocation m_GeometryAllocation{};
     bool              m_GeometryPoolReady{};
     ::nvn::Buffer     m_VertexBuffer{};
     ::nvn::Buffer     m_IndexBuffer{};
@@ -46,6 +49,7 @@ namespace apollo::render::nvn
 
     ::nvn::MemoryPool m_TextureMemoryPool{};
     void *            m_TextureMemory{};
+    telemetry::TrackedAllocation m_TextureAllocation{};
     bool              m_TextureMemoryPoolReady{};
     ::nvn::Texture    m_Texture{};
     bool              m_TextureReady{};

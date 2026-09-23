@@ -10,6 +10,7 @@
   #include "Render/Nvn/NvnDebugUi.hpp"
 #endif
 #include "Render/RenderTypes.hpp"
+#include "Render/RenderTelemetry.hpp"
 
 #include <nn/vi.h>
 
@@ -37,6 +38,10 @@ namespace apollo::render::nvn
     static constexpr int BackbufferCount = 2;
 
     [[nodiscard]] bool CreateImages( Extent2D extent ) noexcept;
+#if !defined( APOLLO_BUILD_RELEASE )
+    [[nodiscard]] bool CreateGpuCounters() noexcept;
+    void               ReadGpuCounters( int backbuffer ) noexcept;
+#endif
     void               DestroyImages() noexcept;
 
     ::nvn::Device * m_Device{};
@@ -58,17 +63,31 @@ namespace apollo::render::nvn
 
     ::nvn::MemoryPool m_TexturePool{};
     void *            m_TextureMemory{};
+    telemetry::TrackedAllocation m_TextureAllocation{};
     bool              m_TexturePoolReady{};
     ::nvn::Texture    m_Textures[ BackbufferCount ]{};
     bool              m_TextureReady[ BackbufferCount ]{};
 
     ::nvn::MemoryPool  m_CommandPool{};
     void *             m_CommandMemory{};
+    telemetry::TrackedAllocation m_CommandAllocation{};
     bool               m_CommandPoolReady{};
     ::nvn::CommandBuffer m_FrameBuffers[ BackbufferCount ]{};
     ::nvn::CommandHandle m_FrameCommands[ BackbufferCount ]{};
     void *              m_ControlMemory[ BackbufferCount ]{};
+    telemetry::TrackedAllocation m_ControlAllocations[ BackbufferCount ]{};
     bool                m_FrameBufferReady[ BackbufferCount ]{};
+
+#if !defined( APOLLO_BUILD_RELEASE )
+    ::nvn::MemoryPool m_CounterPool{};
+    void *            m_CounterMemory{};
+    telemetry::TrackedAllocation m_CounterAllocation{};
+    ::nvn::CounterData * m_CounterReports{};
+    size_t              m_CounterStride{};
+    bool                m_CounterPoolReady{};
+    bool                m_CounterPending[ BackbufferCount ]{};
+    bool                m_FirstTimingReported{};
+#endif
 
     Extent2D m_Extent{};
     bool     m_Ready{};

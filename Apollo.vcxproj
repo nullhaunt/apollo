@@ -104,6 +104,7 @@
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />
     <ClInclude Include="Source\Render\RenderDevice.hpp" />
     <ClInclude Include="Source\Render\RenderTypes.hpp" />
+    <ClInclude Include="Source\Render\RenderTelemetry.hpp" />
     <ClInclude Include="Source\Render\IndexedQuad.hpp" />
     <ClInclude Include="Source\Render\IndexedQuadTexture.hpp" />
     <ClInclude Include="Source\Render\TextureData.hpp" />
