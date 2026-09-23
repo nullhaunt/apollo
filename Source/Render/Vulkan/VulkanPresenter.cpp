@@ -56,7 +56,8 @@ namespace apollo::render::vulkan
     }
     m_Context   = &context;
     m_Swapchain = &swapchain;
-    if ( !CreateCommands() || !CreateSynchronization() || !CreateGeometry() || !CreateTexture() || !CreatePipeline() )
+    if ( !CreateCommands() || !CreateSynchronization() || !CreateGeometry() ||
+         !CreateTexture( IndexedQuadImage, IndexedQuadSampler ) || !CreatePipeline() )
     {
       Shutdown();
       return false;
@@ -226,11 +227,16 @@ namespace apollo::render::vulkan
                              IndexedQuadIndices, m_IndexBuffer, m_IndexMemory );
   }
 
-  bool VulkanPresenter::CreateTexture() noexcept
+  bool VulkanPresenter::CreateTexture( Rgba8ImageView image, TextureSamplerDesc sampling ) noexcept
   {
+    if ( !image.IsValid() )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Invalid RGBA8 texture data." );
+      return false;
+    }
     const vk::Device device = m_Context->GetDevice();
-    if ( !CreateHostBuffer( IndexedQuadTexels.size(), vk::BufferUsageFlagBits::eTransferSrc,
-                           IndexedQuadTexels.data(), m_TextureStagingBuffer, m_TextureStagingMemory ) )
+    if ( !CreateHostBuffer( image.byteCount, vk::BufferUsageFlagBits::eTransferSrc,
+                           image.pixels, m_TextureStagingBuffer, m_TextureStagingMemory ) )
     {
       return false;
     }
@@ -238,7 +244,7 @@ namespace apollo::render::vulkan
     vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.format = vk::Format::eR8G8B8A8Unorm;
-    imageInfo.extent = vk::Extent3D{ IndexedQuadTextureSize, IndexedQuadTextureSize, 1 };
+    imageInfo.extent = vk::Extent3D{ image.width, image.height, 1 };
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
     imageInfo.samples = vk::SampleCountFlagBits::e1;
@@ -307,6 +313,7 @@ namespace apollo::render::vulkan
     m_CommandBuffer.pipelineBarrier( vk::PipelineStageFlagBits::eTopOfPipe,
                                      vk::PipelineStageFlagBits::eTransfer, {}, 0, nullptr, 0, nullptr, 1, &barrier );
     vk::BufferImageCopy copy{};
+    copy.bufferRowLength = image.rowPitchBytes / 4;
     copy.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     copy.imageSubresource.layerCount = 1;
     copy.imageExtent = imageInfo.extent;
@@ -337,6 +344,10 @@ namespace apollo::render::vulkan
       bootstrap::LogFailure( "Vulkan texture upload", result );
       return false;
     }
+    device.destroyBuffer( m_TextureStagingBuffer );
+    device.freeMemory( m_TextureStagingMemory );
+    m_TextureStagingBuffer = nullptr;
+    m_TextureStagingMemory = nullptr;
 
     vk::ImageViewCreateInfo viewInfo{};
     viewInfo.image = m_TextureImage;
@@ -350,12 +361,16 @@ namespace apollo::render::vulkan
       return false;
     }
     vk::SamplerCreateInfo samplerInfo{};
-    samplerInfo.magFilter = vk::Filter::eNearest;
-    samplerInfo.minFilter = vk::Filter::eNearest;
+    const vk::Filter filter = sampling.filter == TextureFilter::Linear
+      ? vk::Filter::eLinear : vk::Filter::eNearest;
+    const vk::SamplerAddressMode addressMode = sampling.addressMode == TextureAddressMode::Repeat
+      ? vk::SamplerAddressMode::eRepeat : vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.magFilter = filter;
+    samplerInfo.minFilter = filter;
     samplerInfo.mipmapMode = vk::SamplerMipmapMode::eNearest;
-    samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
-    samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
-    samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeU = addressMode;
+    samplerInfo.addressModeV = addressMode;
+    samplerInfo.addressModeW = addressMode;
     samplerInfo.maxLod = 0.0f;
     result = device.createSampler( &samplerInfo, nullptr, &m_TextureSampler );
     if ( result != vk::Result::eSuccess )

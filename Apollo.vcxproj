@@ -106,6 +106,7 @@
     <ClInclude Include="Source\Render\RenderTypes.hpp" />
     <ClInclude Include="Source\Render\IndexedQuad.hpp" />
     <ClInclude Include="Source\Render\IndexedQuadTexture.hpp" />
+    <ClInclude Include="Source\Render\TextureData.hpp" />
     <ClInclude Include="Source\Render\Nvn\NvnContext.hpp" />
     <ClInclude Include="Source\Render\Nvn\NvnIndexedQuad.hpp" />
     <ClInclude Include="Source\Render\Nvn\NvnDebugUi.hpp" />

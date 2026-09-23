@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <limits>
 
 namespace apollo::render::nvn
 {
@@ -53,7 +54,8 @@ namespace apollo::render::nvn
       return false;
     }
     m_Device = context.GetDevice();
-    if ( m_Device == nullptr || !CreateProgram() || !CreateGeometry() || !CreateTexture() )
+    if ( m_Device == nullptr || !CreateProgram() || !CreateGeometry() ||
+         !CreateTexture( IndexedQuadImage, IndexedQuadSampler ) )
     {
       Shutdown();
       return false;
@@ -257,14 +259,20 @@ namespace apollo::render::nvn
     return true;
   }
 
-  bool NvnIndexedQuad::CreateTexture() noexcept
+  bool NvnIndexedQuad::CreateTexture( Rgba8ImageView image, TextureSamplerDesc sampling ) noexcept
   {
+    if ( !image.IsValid() || image.width > static_cast<u32>( std::numeric_limits<int>::max() ) ||
+         image.height > static_cast<u32>( std::numeric_limits<int>::max() ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Invalid RGBA8 texture data." );
+      return false;
+    }
     ::nvn::TextureBuilder textureBuilder{};
     textureBuilder.SetDefaults()
       .SetDevice( m_Device )
       .SetTarget( ::nvn::TextureTarget::TARGET_2D )
       .SetFormat( ::nvn::Format::RGBA8 )
-      .SetSize2D( static_cast<int>( IndexedQuadTextureSize ), static_cast<int>( IndexedQuadTextureSize ) );
+      .SetSize2D( static_cast<int>( image.width ), static_cast<int>( image.height ) );
     const size_t textureSize = textureBuilder.GetStorageSize();
     const size_t textureAlignment = textureBuilder.GetStorageAlignment();
     int textureDescriptorSize{}, samplerDescriptorSize{};
@@ -307,10 +315,10 @@ namespace apollo::render::nvn
     }
     m_TextureReady = true;
     ::nvn::CopyRegion region{};
-    region.width = static_cast<int>( IndexedQuadTextureSize );
-    region.height = static_cast<int>( IndexedQuadTextureSize );
+    region.width = static_cast<int>( image.width );
+    region.height = static_cast<int>( image.height );
     region.depth = 1;
-    m_Texture.WriteTexels( nullptr, &region, IndexedQuadTexels.data() );
+    m_Texture.WriteTexelsStrided( nullptr, &region, image.pixels, image.rowPitchBytes, 0 );
 
     if ( !m_TexturePool.Initialize( &m_TextureMemoryPool, static_cast<ptrdiff_t>( textureDescriptorOffset ),
                                     reservedTextures + 1 ) )
@@ -322,7 +330,11 @@ namespace apollo::render::nvn
     ::nvn::SamplerBuilder samplerBuilder{};
     samplerBuilder.SetDefaults()
       .SetDevice( m_Device )
-      .SetMinMagFilter( ::nvn::MinFilter::NEAREST, ::nvn::MagFilter::NEAREST );
+      .SetMinMagFilter( sampling.filter == TextureFilter::Linear ? ::nvn::MinFilter::LINEAR : ::nvn::MinFilter::NEAREST,
+                        sampling.filter == TextureFilter::Linear ? ::nvn::MagFilter::LINEAR : ::nvn::MagFilter::NEAREST )
+      .SetWrapMode( sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE,
+                    sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE,
+                    sampling.addressMode == TextureAddressMode::Repeat ? ::nvn::WrapMode::REPEAT : ::nvn::WrapMode::CLAMP_TO_EDGE );
     if ( !m_Sampler.Initialize( &samplerBuilder ) )
     {
       return false;

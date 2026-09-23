@@ -122,6 +122,9 @@
     <ClInclude Include="Source\Render\IndexedQuadTexture.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Render\TextureData.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Render\Nvn\NvnContext.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

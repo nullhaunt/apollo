@@ -6,6 +6,7 @@
 
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/RenderTypes.hpp"
+#include "Render/TextureData.hpp"
 
 namespace apollo::render::nvn
 {
@@ -25,7 +26,7 @@ namespace apollo::render::nvn
   private:
     [[nodiscard]] bool CreateProgram() noexcept;
     [[nodiscard]] bool CreateGeometry() noexcept;
-    [[nodiscard]] bool CreateTexture() noexcept;
+    [[nodiscard]] bool CreateTexture( Rgba8ImageView image, TextureSamplerDesc sampling ) noexcept;
 
     ::nvn::Device * m_Device{};
 

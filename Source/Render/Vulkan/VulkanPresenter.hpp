@@ -5,6 +5,7 @@
 #endif
 
 #include "Render/RenderTypes.hpp"
+#include "Render/TextureData.hpp"
 
 #include <memory>
 #include <vulkan/vulkan.hpp>
@@ -33,7 +34,7 @@ namespace apollo::render::vulkan
     [[nodiscard]] bool   CreateCommands() noexcept;
     [[nodiscard]] bool   CreateSynchronization() noexcept;
     [[nodiscard]] bool   CreateGeometry() noexcept;
-    [[nodiscard]] bool   CreateTexture() noexcept;
+    [[nodiscard]] bool   CreateTexture( Rgba8ImageView image, TextureSamplerDesc sampling ) noexcept;
     [[nodiscard]] bool   CreateHostBuffer( vk::DeviceSize size, vk::BufferUsageFlags usage, const void * data,
                                            vk::Buffer & buffer, vk::DeviceMemory & memory ) noexcept;
     [[nodiscard]] bool   CreatePipeline() noexcept;
