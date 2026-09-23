@@ -2,6 +2,7 @@
 
 #include "Mii/MiiCatalog.hpp"
 #include "Mii/MiiResources.hpp"
+#include "Mii/PreviewCamera.hpp"
 #include "Platform/Platform.hpp"
 #if !defined( APOLLO_BUILD_RELEASE )
   #include "Debug/DebugUi.hpp"
@@ -61,6 +62,7 @@ namespace apollo
     State              m_State{ State::Created };
     mii::Catalog       m_MiiCatalog{};
     mii::ResourceFiles m_MiiResources{};
+    mii::PreviewCamera m_MiiPreviewCamera{};
 
 #if !defined( APOLLO_BUILD_RELEASE )
     debug::DebugUi m_DebugUi{};

@@ -49,7 +49,6 @@
     <ClCompile Include="External\imgui\imgui_draw.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
     <ClCompile Include="External\imgui\imgui_tables.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
     <ClCompile Include="External\imgui\imgui_widgets.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
-    <ClCompile Include="External\imgui\imgui_demo.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
     <ClCompile Include="External\imgui\backends\imgui_impl_win32.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64' Or '$(Configuration)'=='Release'">true</ExcludedFromBuild>
     </ClCompile>
@@ -107,6 +106,7 @@
     <ClInclude Include="Source\Core\Types.hpp" />
     <ClInclude Include="Source\Mii\MiiCatalog.hpp" />
     <ClInclude Include="Source\Mii\MiiResources.hpp" />
+    <ClInclude Include="Source\Mii\PreviewCamera.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnModel.hpp" />
     <ClInclude Include="Source\Platform\Diagnostics.hpp" />
     <ClInclude Include="Source\Platform\Platform.hpp" />

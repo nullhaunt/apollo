@@ -2,6 +2,7 @@
 
 #include "Mii/MiiCatalog.hpp"
 #include "Mii/MiiResources.hpp"
+#include "Mii/PreviewCamera.hpp"
 #include "Render/RenderTypes.hpp"
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
@@ -29,17 +30,18 @@ namespace apollo::debug
     void BeginFrame( render::Extent2D           extent,
                      const mii::Catalog &       miiCatalog,
                      const mii::ResourceFiles & miiResources,
-                     bool                       nxMiiModelReady ) noexcept;
+                     bool                       nxMiiModelReady,
+                     mii::PreviewCamera &       previewCamera ) noexcept;
     void Shutdown() noexcept;
 
   private:
+    void DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept;
 #if defined( APOLLO_PLATFORM_NX )
     void         UpdateNxInput( render::Extent2D extent ) noexcept;
     unsigned int m_ConnectedNpadCount{};
 #endif
     std::chrono::steady_clock::time_point m_PreviousFrame{};
     bool                                  m_Ready{};
-    bool                                  m_ShowDemo{};
     bool                                  m_FirstFrameReported{};
     int                                   m_SelectedMii{};
   };

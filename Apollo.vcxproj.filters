@@ -41,7 +41,6 @@
     <ClCompile Include="External\imgui\imgui_draw.cpp"><Filter>Third Party</Filter></ClCompile>
     <ClCompile Include="External\imgui\imgui_tables.cpp"><Filter>Third Party</Filter></ClCompile>
     <ClCompile Include="External\imgui\imgui_widgets.cpp"><Filter>Third Party</Filter></ClCompile>
-    <ClCompile Include="External\imgui\imgui_demo.cpp"><Filter>Third Party</Filter></ClCompile>
     <ClCompile Include="External\imgui\backends\imgui_impl_win32.cpp"><Filter>Third Party</Filter></ClCompile>
     <ClCompile Include="External\imgui\backends\imgui_impl_vulkan.cpp"><Filter>Third Party</Filter></ClCompile>
     <ClCompile Include="Source\Core\CoreContracts.cpp">
@@ -110,6 +109,7 @@
     <ClInclude Include="Source\Mii\MiiCatalog.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiResources.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiNvnModel.hpp"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Source\Mii\PreviewCamera.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Platform\Diagnostics.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

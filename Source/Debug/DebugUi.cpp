@@ -100,7 +100,8 @@ namespace apollo::debug
   void DebugUi::BeginFrame( render::Extent2D           extent,
                             const mii::Catalog &       miiCatalog,
                             const mii::ResourceFiles & miiResources,
-                            bool                       nxMiiModelReady ) noexcept
+                            bool                       nxMiiModelReady,
+                            mii::PreviewCamera &       previewCamera ) noexcept
   {
     if ( !m_Ready )
     {
@@ -257,16 +258,12 @@ namespace apollo::debug
       ImGui::TreePop();
     }
 
+    DrawMiiPreviewCamera( previewCamera );
+
 #if defined( APOLLO_PLATFORM_NX )
     ImGui::TextUnformatted( "Touch or use D-pad, A and B." );
 #endif
-    ImGui::Checkbox( "ImGui demo", &m_ShowDemo );
     ImGui::End();
-
-    if ( m_ShowDemo )
-    {
-      ImGui::ShowDemoWindow( &m_ShowDemo );
-    }
     ImGui::Render();
 
     if ( !m_FirstFrameReported )
@@ -277,6 +274,50 @@ namespace apollo::debug
                                                                   : "Dear ImGui produced no debug UI draw data." );
       m_FirstFrameReported = true;
     }
+  }
+
+  void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept
+  {
+    if ( !ImGui::TreeNode( "Mii preview camera" ) )
+    {
+      return;
+    }
+
+    ImGui::TextUnformatted( "Head draw pending." );
+
+    if ( ImGui::Button( "Front" ) )
+    {
+      previewCamera.SetFront();
+    }
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "Three-quarter" ) )
+    {
+      previewCamera.SetThreeQuarter();
+    }
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "Profile" ) )
+    {
+      previewCamera.SetProfile();
+    }
+    ImGui::SameLine();
+
+    if ( ImGui::Button( "Reset" ) )
+    {
+      previewCamera.SetFront();
+    }
+
+    ImGui::SliderFloat( "Yaw", &previewCamera.yawDegrees, -180.0f, 180.0f, "%.0f deg" );
+    ImGui::SliderFloat( "Pitch", &previewCamera.pitchDegrees, -80.0f, 80.0f, "%.0f deg" );
+    ImGui::SliderFloat( "Distance",
+                        &previewCamera.distance,
+                        mii::PreviewCamera::MinimumDistance,
+                        mii::PreviewCamera::MaximumDistance,
+                        "%.0f units" );
+    previewCamera.Clamp();
+
+    ImGui::TreePop();
   }
 
 #if defined( APOLLO_PLATFORM_NX )
