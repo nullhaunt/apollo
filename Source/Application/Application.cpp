@@ -166,7 +166,7 @@ namespace apollo
       }
 
 #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame( { extent.width, extent.height }, m_MiiCatalog, m_MiiResources );
+      m_DebugUi.BeginFrame( { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false );
 #endif
       const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
       if ( frame == render::Result::SurfaceOutOfDate )
@@ -213,7 +213,7 @@ namespace apollo
         return ApplicationExitStatus::PlatformFailure;
       }
 #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame( extent, m_MiiCatalog, m_MiiResources );
+      m_DebugUi.BeginFrame( extent, m_MiiCatalog, m_MiiResources, m_MiiModel.IsReady() );
 #endif
       if ( m_NvnPresenter.PresentFrame() != render::Result::Success )
       {
@@ -303,6 +303,10 @@ namespace apollo
     // Resource loading is a separate feasibility checkpoint; rendering can run
     // and report its failure without these optional Mii inputs.
     (void)m_MiiResources.Load();
+#if defined( APOLLO_PLATFORM_NX )
+    if ( const mii::Entry * first = m_MiiCatalog.Get( 0 ); first != nullptr && m_MiiResources.IsReady() )
+      (void)m_MiiModel.Initialize( m_Nvn, m_MiiResources, *first );
+#endif
     m_State = State::Initialized;
     diagnostics::Write( diagnostics::Level::Information, "Initialization complete." );
     return true;
@@ -327,6 +331,7 @@ namespace apollo
     m_Vulkan.Shutdown();
     m_Window.Destroy();
 #elif defined( APOLLO_PLATFORM_NX )
+    m_MiiModel.Shutdown();
     m_NvnPresenter.Shutdown();
 #if !defined( APOLLO_BUILD_RELEASE )
     m_DebugUi.Shutdown();

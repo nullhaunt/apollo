@@ -13,6 +13,7 @@
   #include "Render/Vulkan/VulkanPresenter.hpp"
   #include "Render/Vulkan/VulkanSwapchain.hpp"
 #elif defined( APOLLO_PLATFORM_NX )
+  #include "Mii/MiiNvnModel.hpp"
   #include "Render/Nvn/NvnContext.hpp"
   #include "Render/Nvn/NvnPresenter.hpp"
 #endif
@@ -74,6 +75,7 @@ namespace apollo
 #elif defined( APOLLO_PLATFORM_NX )
     render::nvn::NvnContext   m_Nvn{};
     render::nvn::NvnPresenter m_NvnPresenter{};
+    mii::NvnModel m_MiiModel{};
 #endif
   };
 } // namespace apollo

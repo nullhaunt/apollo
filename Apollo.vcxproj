@@ -59,6 +59,7 @@
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
     <ClCompile Include="Source\Mii\MiiCatalog.cpp" />
     <ClCompile Include="Source\Mii\MiiResources.cpp" />
+    <ClCompile Include="Source\Mii\MiiNvnModel.cpp"><ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild></ClCompile>
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Platform\Diagnostics.cpp" />
     <ClCompile Include="Source\Render\RenderContracts.cpp" />
@@ -104,6 +105,7 @@
     <ClInclude Include="Source\Core\Types.hpp" />
     <ClInclude Include="Source\Mii\MiiCatalog.hpp" />
     <ClInclude Include="Source\Mii\MiiResources.hpp" />
+    <ClInclude Include="Source\Mii\MiiNvnModel.hpp" />
     <ClInclude Include="Source\Platform\Diagnostics.hpp" />
     <ClInclude Include="Source\Platform\Platform.hpp" />
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />
@@ -357,7 +359,7 @@
   <ItemDefinitionGroup Condition="'$(Platform)'=='NX64'">
     <Link>
       <AdditionalLibraryDirectories>$(NintendoSdkLibraryPath);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libnn_mii_draw.a;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libnn_mii_draw.a;libnn_gfx.a;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Target Name="BuildIndexedQuadShaders" BeforeTargets="ClCompile"

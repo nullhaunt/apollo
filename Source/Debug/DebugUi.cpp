@@ -86,7 +86,7 @@ namespace apollo::debug
   }
 
   void DebugUi::BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog,
-                            const mii::ResourceFiles & miiResources ) noexcept
+                            const mii::ResourceFiles & miiResources, bool nxMiiModelReady ) noexcept
   {
     if ( !m_Ready ) return;
 #if defined( APOLLO_PLATFORM_WINDOWS )
@@ -183,6 +183,11 @@ namespace apollo::debug
           static_cast<unsigned int>( miiResources.ResourceObjectSize() ) );
       }
       else ImGui::TextUnformatted( "SDK Mii resources unavailable; see diagnostics." );
+#if defined( APOLLO_PLATFORM_NX )
+      ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized (draw pending)" : "unavailable" );
+#else
+      (void)nxMiiModelReady;
+#endif
       if ( !miiCatalog.IsAvailable() )
         ImGui::TextUnformatted( "Database unavailable; see diagnostics." );
       else

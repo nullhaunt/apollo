@@ -27,7 +27,7 @@ namespace apollo::debug
     [[nodiscard]] bool Initialize() noexcept;
 #endif
     void BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog,
-                     const mii::ResourceFiles & miiResources ) noexcept;
+                     const mii::ResourceFiles & miiResources, bool nxMiiModelReady ) noexcept;
     void Shutdown() noexcept;
 
   private:
