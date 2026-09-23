@@ -310,6 +310,10 @@ namespace apollo::render::nvn
 
   bool NvnPresenter::CreateImages( Extent2D extent ) noexcept
   {
+    size_t logicalBytes{};
+    if ( !budget::Rgba8Footprint( extent.width, extent.height, BackbufferCount, logicalBytes ) ||
+         !m_PresentationBudget.Acquire( budget::Resource::Presentation, logicalBytes ) )
+      return false;
     ::nvn::TextureBuilder textureBuilder{};
     textureBuilder.SetDefaults()
       .SetDevice( m_Device )
@@ -463,6 +467,7 @@ namespace apollo::render::nvn
     }
     std::free( m_TextureMemory );
     m_TextureAllocation.Release();
+    m_PresentationBudget.Release();
     m_TextureMemory = nullptr;
     m_Extent        = {};
   }

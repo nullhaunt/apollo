@@ -4,6 +4,7 @@
 #include "Platform/Diagnostics.hpp"
 #include "Platform/Platform.hpp"
 #include "Render/RenderTelemetry.hpp"
+#include "Render/RenderBudget.hpp"
 
 #include <imgui.h>
 
@@ -102,7 +103,7 @@ namespace apollo::debug
     ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode );
     ImGui::SetNextWindowPos( ImVec2( 20, 20 ), ImGuiCond_FirstUseEver );
 #if defined( APOLLO_PLATFORM_NX )
-    ImGui::SetNextWindowSize( ImVec2( 600, 390 ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 600, 420 ), ImGuiCond_FirstUseEver );
 #else
     ImGui::SetNextWindowSize( ImVec2( 540, 310 ), ImGuiCond_FirstUseEver );
 #endif
@@ -134,6 +135,36 @@ namespace apollo::debug
                  static_cast<double>( memory.peakBytes ) / ( 1024.0 * 1024.0 ) );
     ImGui::Text( "Allocations: %u / %u (now / peak)",
                  memory.currentAllocations, memory.peakAllocations );
+    const auto budget = render::budget::GetSnapshot();
+    constexpr double MiB = 1024.0 * 1024.0;
+    ImGui::Text( "Logical: %.2f / %.2f MiB (now / peak)",
+                 static_cast<double>( budget.currentBytes ) / MiB,
+                 static_cast<double>( budget.peakBytes ) / MiB );
+    if ( budget.profile.hardBytes != 0 )
+    {
+      ImGui::Text( "PC cap: %.0f / %.0f MiB (soft / hard), %u denied",
+                   static_cast<double>( budget.profile.softBytes ) / MiB,
+                   static_cast<double>( budget.profile.hardBytes ) / MiB,
+                   budget.deniedRequests );
+    }
+    if ( budget.applicationAvailableBytes != 0 )
+    {
+      ImGui::Text( "NX app available: %.0f MiB (85%%: %.0f MiB)",
+                   static_cast<double>( budget.applicationAvailableBytes ) / MiB,
+                   static_cast<double>( budget.applicationAvailableBytes ) * 0.85 / MiB );
+    }
+    if ( ImGui::TreeNode( "Logical resource charges" ) )
+    {
+      const auto chargeKiB = [&]( render::budget::Resource resource ) noexcept
+      {
+        return static_cast<double>( budget.currentByResource[ static_cast<size_t>( resource ) ] ) / 1024.0;
+      };
+      ImGui::Text( "Presentation: %.1f KiB", chargeKiB( render::budget::Resource::Presentation ) );
+      ImGui::Text( "Geometry: %.1f KiB", chargeKiB( render::budget::Resource::Geometry ) );
+      ImGui::Text( "Texture: %.1f KiB", chargeKiB( render::budget::Resource::Texture ) );
+      ImGui::Text( "Upload: %.1f KiB", chargeKiB( render::budget::Resource::Upload ) );
+      ImGui::TreePop();
+    }
 #if defined( APOLLO_PLATFORM_NX )
     ImGui::TextUnformatted( "Touch or use D-pad, A and B." );
 #endif

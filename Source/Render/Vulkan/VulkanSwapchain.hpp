@@ -5,6 +5,7 @@
 #endif
 
 #include "Render/RenderTypes.hpp"
+#include "Render/RenderBudget.hpp"
 
 #include <memory>
 #include <vulkan/vulkan.hpp>
@@ -50,5 +51,6 @@ namespace apollo::render::vulkan
     std::unique_ptr<vk::Framebuffer[]> m_Framebuffers{};
     vk::Extent2D                       m_Extent{};
     u32                                m_ImageCount{};
+    budget::Reservation                m_PresentationBudget{};
   };
 } // namespace apollo::render::vulkan

@@ -276,6 +276,9 @@ namespace apollo::render::vulkan
 
   bool VulkanPresenter::CreateGeometry() noexcept
   {
+    if ( !m_GeometryBudget.Acquire( budget::Resource::Geometry,
+                                    sizeof( IndexedQuadVertices ) + sizeof( IndexedQuadIndices ) ) )
+      return false;
     return CreateHostBuffer( sizeof( IndexedQuadVertices ), vk::BufferUsageFlagBits::eVertexBuffer,
                              IndexedQuadVertices, m_VertexBuffer, m_VertexMemory, m_VertexAllocation ) &&
            CreateHostBuffer( sizeof( IndexedQuadIndices ), vk::BufferUsageFlagBits::eIndexBuffer,
@@ -289,6 +292,11 @@ namespace apollo::render::vulkan
       diagnostics::Write( diagnostics::Level::Error, "Invalid RGBA8 texture data." );
       return false;
     }
+    size_t textureBytes{};
+    if ( !budget::Rgba8Footprint( image.width, image.height, 1, textureBytes ) ||
+         !m_TextureBudget.Acquire( budget::Resource::Texture, textureBytes ) ||
+         !m_UploadBudget.Acquire( budget::Resource::Upload, image.byteCount ) )
+      return false;
     const vk::Device device = m_Context->GetDevice();
     if ( !CreateHostBuffer( image.byteCount, vk::BufferUsageFlagBits::eTransferSrc,
                            image.pixels, m_TextureStagingBuffer, m_TextureStagingMemory, m_StagingAllocation ) )
@@ -403,6 +411,7 @@ namespace apollo::render::vulkan
     device.destroyBuffer( m_TextureStagingBuffer );
     device.freeMemory( m_TextureStagingMemory );
     m_StagingAllocation.Release();
+    m_UploadBudget.Release();
     m_TextureStagingBuffer = nullptr;
     m_TextureStagingMemory = nullptr;
 
@@ -866,6 +875,9 @@ namespace apollo::render::vulkan
         device.destroyCommandPool( m_CommandPool );
       }
     }
+    m_TextureBudget.Release();
+    m_UploadBudget.Release();
+    m_GeometryBudget.Release();
     m_FrameFence      = nullptr;
 #if !defined( APOLLO_BUILD_RELEASE )
     m_TimestampQueries = nullptr;

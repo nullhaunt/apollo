@@ -190,6 +190,13 @@ namespace apollo::render::vulkan
       diagnostics::Write( Level::Warning, "Vulkan surface has no drawable extent." );
       return false;
     }
+    size_t logicalBytes{};
+    if ( !budget::Rgba8Footprint( selectedExtent.width, selectedExtent.height, 2, logicalBytes ) ||
+         !m_PresentationBudget.Acquire( budget::Resource::Presentation, logicalBytes ) )
+    {
+      diagnostics::Write( Level::Warning, "Vulkan presentation request exceeded the logical renderer budget." );
+      return false;
+    }
     u32 imageCount = capabilities.minImageCount;
     if ( imageCount < std::numeric_limits<u32>::max() &&
          ( capabilities.maxImageCount == 0 || imageCount < capabilities.maxImageCount ) )
@@ -387,6 +394,7 @@ namespace apollo::render::vulkan
       device.destroySwapchainKHR( m_Swapchain );
       m_Swapchain = nullptr;
     }
+    m_PresentationBudget.Release();
     m_Format     = vk::Format::eUndefined;
     m_Extent     = vk::Extent2D{};
     m_ImageCount = 0;
@@ -403,6 +411,7 @@ namespace apollo::render::vulkan
       ( void )m_Context->GetDevice().waitIdle();
       DestroyResources();
     }
+    m_PresentationBudget.Release();
     m_Context = nullptr;
   }
 

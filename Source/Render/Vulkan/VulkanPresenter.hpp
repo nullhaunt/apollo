@@ -5,6 +5,7 @@
 #endif
 
 #include "Render/RenderTypes.hpp"
+#include "Render/RenderBudget.hpp"
 #include "Render/RenderTelemetry.hpp"
 #include "Render/TextureData.hpp"
 
@@ -70,12 +71,15 @@ namespace apollo::render::vulkan
     vk::Buffer                       m_IndexBuffer{};
     vk::DeviceMemory                 m_IndexMemory{};
     telemetry::TrackedAllocation     m_IndexAllocation{};
+    budget::Reservation              m_GeometryBudget{};
     vk::Buffer                       m_TextureStagingBuffer{};
     vk::DeviceMemory                 m_TextureStagingMemory{};
     telemetry::TrackedAllocation     m_StagingAllocation{};
+    budget::Reservation              m_UploadBudget{};
     vk::Image                        m_TextureImage{};
     vk::DeviceMemory                 m_TextureMemory{};
     telemetry::TrackedAllocation     m_TextureAllocation{};
+    budget::Reservation              m_TextureBudget{};
     vk::ImageView                    m_TextureView{};
     vk::Sampler                      m_TextureSampler{};
     vk::DescriptorSetLayout          m_TextureSetLayout{};

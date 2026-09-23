@@ -3,12 +3,90 @@
 #include "Core/BuildConfiguration.hpp"
 #include "Platform/Diagnostics.hpp"
 #include "Platform/Platform.hpp"
+#include "Render/RenderBudget.hpp"
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Render/RenderTypes.hpp"
 #elif defined( APOLLO_PLATFORM_NX )
   #include <nn/oe.h>
+  #include <nn/os/os_DebugApi.h>
 #endif
+
+#include <cstdio>
+
+#if defined( APOLLO_PLATFORM_WINDOWS )
+  #include <charconv>
+  #include <limits>
+#endif
+
+namespace
+{
+#if defined( APOLLO_PLATFORM_WINDOWS )
+  [[nodiscard]] bool ReadBudgetOverride( const char * name, size_t & bytes, bool & provided ) noexcept
+  {
+    char value[ 32 ]{};
+    const DWORD length = GetEnvironmentVariableA( name, value, sizeof( value ) );
+    if ( length == 0 )
+    {
+      provided = GetLastError() != ERROR_ENVVAR_NOT_FOUND;
+      return !provided;
+    }
+    provided = true;
+    if ( length >= sizeof( value ) ) return false;
+    unsigned long long parsed{};
+    const auto result = std::from_chars( value, value + length, parsed );
+    if ( result.ec != std::errc{} || result.ptr != value + length || parsed == 0 ||
+         parsed > std::numeric_limits<size_t>::max() ) return false;
+    bytes = static_cast<size_t>( parsed );
+    return true;
+  }
+
+  [[nodiscard]] bool ConfigurePcRenderBudget() noexcept
+  {
+    constexpr size_t MiB = 1024 * 1024;
+    // A deliberately small pressure profile for this renderer slice. It is
+    // not an estimate of Switch application memory.
+    apollo::render::budget::Profile profile{ 32 * MiB, 48 * MiB };
+    size_t nxAvailable{};
+    bool nxProvided{}, softProvided{}, hardProvided{};
+    if ( !ReadBudgetOverride( "APOLLO_NX_APP_AVAILABLE_BYTES", nxAvailable, nxProvided ) )
+    {
+      apollo::diagnostics::Write( apollo::diagnostics::Level::Error, "Invalid NX application memory reference." );
+      return false;
+    }
+    if ( nxProvided )
+    {
+      // Divide first to avoid overflow if an invalidly large reference is supplied.
+      profile.softBytes = nxAvailable / 100 * 75 + nxAvailable % 100 * 75 / 100;
+      profile.hardBytes = nxAvailable / 100 * 85 + nxAvailable % 100 * 85 / 100;
+    }
+    if ( !ReadBudgetOverride( "APOLLO_RENDER_SOFT_BYTES", profile.softBytes, softProvided ) ||
+         !ReadBudgetOverride( "APOLLO_RENDER_HARD_BYTES", profile.hardBytes, hardProvided ) )
+    {
+      apollo::diagnostics::Write( apollo::diagnostics::Level::Error, "Invalid PC renderer budget override." );
+      return false;
+    }
+    if ( hardProvided && !softProvided )
+      profile.softBytes = profile.hardBytes / 4 * 3 + profile.hardBytes % 4 * 3 / 4;
+    if ( softProvided && !hardProvided && profile.softBytes > profile.hardBytes )
+      profile.hardBytes = profile.softBytes;
+    if ( profile.hardBytes == 0 || !apollo::render::budget::Configure( profile ) )
+    {
+      apollo::diagnostics::Write( apollo::diagnostics::Level::Error, "Invalid PC renderer budget profile." );
+      return false;
+    }
+    if ( nxProvided ) apollo::render::budget::SetApplicationAvailableBytes( nxAvailable );
+    char message[ 160 ]{};
+    std::snprintf( message, sizeof( message ), "PC renderer logical budget: soft %llu, hard %llu bytes%s.",
+                   static_cast<unsigned long long>( profile.softBytes ),
+                   static_cast<unsigned long long>( profile.hardBytes ),
+                   softProvided || hardProvided ? " (override)" :
+                   nxProvided ? " (NX available reference)" : " (stress profile)" );
+    apollo::diagnostics::Write( apollo::diagnostics::Level::Information, message );
+    return true;
+  }
+#endif
+} // namespace
 
 namespace apollo
 {
@@ -161,6 +239,7 @@ namespace apollo
     diagnostics::Write( diagnostics::Level::Information, "Configuration: ", build::CurrentConfigurationName );
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
+    if ( !ConfigurePcRenderBudget() ) return false;
     if ( !m_Window.Create( L"Apollo", { 1280, 720 } ) )
     {
       diagnostics::Write( diagnostics::Level::Error, "Windows window creation failed." );
@@ -188,6 +267,16 @@ namespace apollo
     }
     m_PresentationReady = true;
 #elif defined( APOLLO_PLATFORM_NX )
+    if ( !render::budget::Configure( {} ) ) return false;
+    nn::os::MemoryInfo memoryInfo{};
+    nn::os::QueryMemoryInfo( &memoryInfo );
+    render::budget::SetApplicationAvailableBytes( memoryInfo.totalAvailableMemorySize );
+    char memoryMessage[ 128 ]{};
+    std::snprintf( memoryMessage, sizeof( memoryMessage ),
+                   "NX application memory available: %llu bytes; 85%% target: %llu bytes.",
+                   static_cast<unsigned long long>( memoryInfo.totalAvailableMemorySize ),
+                   static_cast<unsigned long long>( memoryInfo.totalAvailableMemorySize * 85 / 100 ) );
+    diagnostics::Write( diagnostics::Level::Information, memoryMessage );
     if ( !m_Nvn.Initialize() )
     {
       diagnostics::Write( diagnostics::Level::Error, "NVN context initialization failed." );
@@ -239,6 +328,9 @@ namespace apollo
 #endif
     m_Nvn.Shutdown();
 #endif
+
+    if ( render::budget::GetSnapshot().currentBytes != 0 )
+      diagnostics::Write( diagnostics::Level::Error, "Renderer logical budget reservations remain at shutdown." );
 
     diagnostics::Write( diagnostics::Level::Information, "Shutdown complete." );
     m_State = State::Stopped;

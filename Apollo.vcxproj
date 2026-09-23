@@ -60,6 +60,7 @@
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Platform\Diagnostics.cpp" />
     <ClCompile Include="Source\Render\RenderContracts.cpp" />
+    <ClCompile Include="Source\Render\RenderBudget.cpp" />
     <ClCompile Include="Source\Render\Nvn\NvnContext.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -105,6 +106,7 @@
     <ClInclude Include="Source\Render\RenderDevice.hpp" />
     <ClInclude Include="Source\Render\RenderTypes.hpp" />
     <ClInclude Include="Source\Render\RenderTelemetry.hpp" />
+    <ClInclude Include="Source\Render\RenderBudget.hpp" />
     <ClInclude Include="Source\Render\IndexedQuad.hpp" />
     <ClInclude Include="Source\Render\IndexedQuadTexture.hpp" />
     <ClInclude Include="Source\Render\TextureData.hpp" />

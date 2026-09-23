@@ -10,6 +10,7 @@
   #include "Render/Nvn/NvnDebugUi.hpp"
 #endif
 #include "Render/RenderTypes.hpp"
+#include "Render/RenderBudget.hpp"
 #include "Render/RenderTelemetry.hpp"
 
 #include <nn/vi.h>
@@ -62,6 +63,7 @@ namespace apollo::render::nvn
     bool          m_SyncReady{};
 
     ::nvn::MemoryPool m_TexturePool{};
+    budget::Reservation m_PresentationBudget{};
     void *            m_TextureMemory{};
     telemetry::TrackedAllocation m_TextureAllocation{};
     bool              m_TexturePoolReady{};

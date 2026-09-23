@@ -218,6 +218,9 @@ namespace apollo::render::nvn
 
   bool NvnIndexedQuad::CreateGeometry() noexcept
   {
+    if ( !m_GeometryBudget.Acquire( budget::Resource::Geometry,
+                                    sizeof( IndexedQuadVertices ) + sizeof( IndexedQuadIndices ) ) )
+      return false;
     constexpr size_t indexOffset = NVN_MEMORY_POOL_STORAGE_GRANULARITY;
     constexpr size_t poolSize = indexOffset + NVN_MEMORY_POOL_STORAGE_GRANULARITY;
     m_GeometryMemory = AllocateAligned( poolSize );
@@ -269,6 +272,10 @@ namespace apollo::render::nvn
       diagnostics::Write( diagnostics::Level::Error, "Invalid RGBA8 texture data." );
       return false;
     }
+    size_t logicalBytes{};
+    if ( !budget::Rgba8Footprint( image.width, image.height, 1, logicalBytes ) ||
+         !m_TextureBudget.Acquire( budget::Resource::Texture, logicalBytes ) )
+      return false;
     ::nvn::TextureBuilder textureBuilder{};
     textureBuilder.SetDefaults()
       .SetDevice( m_Device )
@@ -411,6 +418,7 @@ namespace apollo::render::nvn
     if ( m_TextureMemoryPoolReady ) m_TextureMemoryPool.Finalize();
     std::free( m_TextureMemory );
     m_TextureAllocation.Release();
+    m_TextureBudget.Release();
     m_TextureMemory = nullptr;
     m_SamplerPoolReady = false;
     m_SamplerReady = false;
@@ -436,6 +444,7 @@ namespace apollo::render::nvn
     m_GeometryPoolReady = false;
     std::free( m_GeometryMemory );
     m_GeometryAllocation.Release();
+    m_GeometryBudget.Release();
     m_GeometryMemory = nullptr;
 
     if ( m_ProgramReady )
