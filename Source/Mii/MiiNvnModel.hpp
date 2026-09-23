@@ -5,6 +5,7 @@
 #endif
 
 #include "Mii/MiiCatalog.hpp"
+#include "Mii/MiiNvnFaceRenderer.hpp"
 #include "Mii/MiiResources.hpp"
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/RenderTelemetry.hpp"
@@ -38,6 +39,10 @@ namespace apollo::mii
     {
       return m_Faceline.IsInitialized() && m_Mask.IsInitialized();
     }
+    [[nodiscard]] bool AreFaceTexturesReady() const noexcept
+    {
+      return m_FaceRenderer.IsReady();
+    }
 
   private:
     void               InitializeGfx( render::nvn::NvnContext & context ) noexcept;
@@ -52,6 +57,7 @@ namespace apollo::mii
     nn::gfx::MemoryPool                  m_FaceSourcePool{};
     nn::mii::Faceline                    m_Faceline{};
     nn::mii::Mask                        m_Mask{};
+    NvnFaceRenderer                      m_FaceRenderer{};
     void *                               m_ResourceMemory{};
     void *                               m_ModelMemory{};
     void *                               m_PoolMemory{};

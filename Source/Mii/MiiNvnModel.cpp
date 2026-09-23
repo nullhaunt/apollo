@@ -64,6 +64,8 @@ namespace apollo::mii
       return false;
     }
 
+    ( void )m_FaceRenderer.Initialize( m_GfxDevice, m_Model, m_Faceline, m_Mask );
+
     return true;
   }
 
@@ -113,6 +115,10 @@ namespace apollo::mii
     nn::mii::CharModelInfo modelInfo;
     modelInfo.SetDefault();
     modelInfo.SetCreateFlag( nn::mii::CreateFlag_Normal | nn::mii::CreateFlag_NoseNormal );
+    modelInfo.SetDynamicTextureResolution( 512, 512 );
+    modelInfo.SetDynamicTextureFormat( nn::gfx::ImageFormat_R8_G8_B8_A8_Unorm, nn::gfx::ImageFormat_R8_G8_B8_A8_Unorm );
+    modelInfo.SetDynamicTextureMipCount( 1, 1 );
+    modelInfo.SetMaskCount( 1 );
 
     const size_t modelSize      = nn::mii::CharModel::CalculateMemorySize( modelInfo );
     const size_t modelAlignment = nn::mii::CharModel::CalculateMemoryAlignment( modelInfo );
@@ -312,6 +318,8 @@ namespace apollo::mii
 
   void NvnModel::Shutdown() noexcept
   {
+    m_FaceRenderer.Shutdown();
+
     if ( m_Mask.IsInitialized() )
     {
       m_Mask.Finalize( &m_GfxDevice );

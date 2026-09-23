@@ -141,6 +141,7 @@ namespace apollo::debug
                             const mii::ResourceFiles & miiResources,
                             bool                       nxMiiModelReady,
                             bool                       nxFaceSourcesReady,
+                            bool                       nxFaceTexturesReady,
                             mii::PreviewCamera &       previewCamera ) noexcept
   {
     if ( !m_Ready )
@@ -163,7 +164,8 @@ namespace apollo::debug
     ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode );
 
     DrawDiagnosticsWindow( extent );
-    DrawMiiWindow( extent, miiCatalog, miiResources, nxMiiModelReady, nxFaceSourcesReady, previewCamera );
+    DrawMiiWindow(
+      extent, miiCatalog, miiResources, nxMiiModelReady, nxFaceSourcesReady, nxFaceTexturesReady, previewCamera );
     ImGui::Render();
 
     if ( !m_FirstFrameReported )
@@ -257,6 +259,7 @@ namespace apollo::debug
                                const mii::ResourceFiles & miiResources,
                                bool                       nxMiiModelReady,
                                bool                       nxFaceSourcesReady,
+                               bool                       nxFaceTexturesReady,
                                mii::PreviewCamera &       previewCamera ) noexcept
   {
     const WindowLayout layout = GetWindowLayout( extent );
@@ -295,10 +298,12 @@ namespace apollo::debug
 
 #if defined( APOLLO_PLATFORM_NX )
     ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized (draw pending)" : "unavailable" );
-    ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready (texture draw pending)" : "unavailable" );
+    ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready" : "unavailable" );
+    ImGui::Text( "Mii face textures: %s", nxFaceTexturesReady ? "generated (head draw pending)" : "unavailable" );
 #else
     ( void )nxMiiModelReady;
     ( void )nxFaceSourcesReady;
+    ( void )nxFaceTexturesReady;
 #endif
 
     ImGui::Separator();
