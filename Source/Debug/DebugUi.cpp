@@ -20,6 +20,45 @@
 
 namespace apollo::debug
 {
+  namespace
+  {
+    struct WindowLayout
+    {
+      ImVec2 diagnosticsPosition{};
+      ImVec2 diagnosticsSize{};
+      ImVec2 miiPosition{};
+      ImVec2 miiSize{};
+    };
+
+    [[nodiscard]] WindowLayout GetWindowLayout( render::Extent2D extent ) noexcept
+    {
+      const float width  = static_cast<float>( extent.width );
+      const float height = static_cast<float>( extent.height );
+      const float margin = std::min( { 20.0f, width * 0.25f, height * 0.25f } );
+      const float gap    = std::min( 16.0f, height * 0.1f );
+
+      if ( width >= 1100.0f )
+      {
+        constexpr float diagnosticsWidth = 420.0f;
+        const float     miiX             = margin + diagnosticsWidth + gap;
+
+        return { ImVec2( margin, margin ),
+                 ImVec2( diagnosticsWidth, std::min( 360.0f, height - 2.0f * margin ) ),
+                 ImVec2( miiX, margin ),
+                 ImVec2( std::min( 620.0f, width - miiX - margin ), std::min( 440.0f, height - 2.0f * margin ) ) };
+      }
+
+      const float panelWidth        = width - 2.0f * margin;
+      const float diagnosticsHeight = std::min( 220.0f, ( height - 3.0f * margin - gap ) * 0.4f );
+      const float miiY              = margin + diagnosticsHeight + gap;
+
+      return { ImVec2( margin, margin ),
+               ImVec2( panelWidth, diagnosticsHeight ),
+               ImVec2( margin, miiY ),
+               ImVec2( panelWidth, height - miiY - margin ) };
+    }
+  } // namespace
+
 #if defined( APOLLO_PLATFORM_NX )
   namespace
   {
@@ -122,14 +161,32 @@ namespace apollo::debug
 
     ImGui::NewFrame();
     ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode );
-    ImGui::SetNextWindowPos( ImVec2( 20, 20 ), ImGuiCond_FirstUseEver );
-#if defined( APOLLO_PLATFORM_NX )
-    ImGui::SetNextWindowSize( ImVec2( 600, 420 ), ImGuiCond_FirstUseEver );
-#else
-    ImGui::SetNextWindowSize( ImVec2( 540, 310 ), ImGuiCond_FirstUseEver );
-#endif
 
-    ImGui::Begin( "Apollo Diagnostics" );
+    DrawDiagnosticsWindow( extent );
+    DrawMiiWindow( extent, miiCatalog, miiResources, nxMiiModelReady, nxFaceSourcesReady, previewCamera );
+    ImGui::Render();
+
+    if ( !m_FirstFrameReported )
+    {
+      diagnostics::Write( ImGui::GetDrawData()->TotalVtxCount > 0 ? diagnostics::Level::Information
+                                                                  : diagnostics::Level::Error,
+                          ImGui::GetDrawData()->TotalVtxCount > 0 ? "Dear ImGui produced debug UI draw data."
+                                                                  : "Dear ImGui produced no debug UI draw data." );
+      m_FirstFrameReported = true;
+    }
+  }
+
+  void DebugUi::DrawDiagnosticsWindow( render::Extent2D extent ) noexcept
+  {
+    const WindowLayout layout = GetWindowLayout( extent );
+    ImGui::SetNextWindowPos( layout.diagnosticsPosition, ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( layout.diagnosticsSize, ImGuiCond_FirstUseEver );
+
+    if ( !ImGui::Begin( "Apollo Diagnostics" ) )
+    {
+      ImGui::End();
+      return;
+    }
     ImGui::Text( "Platform: %s", platform::CurrentTargetName );
     ImGui::Text( "Configuration: %s", build::CurrentConfigurationName );
     ImGui::Text( "Display: %u x %u", extent.width, extent.height );
@@ -192,100 +249,129 @@ namespace apollo::debug
       ImGui::TreePop();
     }
 
-    if ( ImGui::TreeNode( "Mii catalog" ) )
+    ImGui::End();
+  }
+
+  void DebugUi::DrawMiiWindow( render::Extent2D           extent,
+                               const mii::Catalog &       miiCatalog,
+                               const mii::ResourceFiles & miiResources,
+                               bool                       nxMiiModelReady,
+                               bool                       nxFaceSourcesReady,
+                               mii::PreviewCamera &       previewCamera ) noexcept
+  {
+    const WindowLayout layout = GetWindowLayout( extent );
+    ImGui::SetNextWindowPos( layout.miiPosition, ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( layout.miiSize, ImGuiCond_FirstUseEver );
+
+    if ( !m_FirstFrameReported )
     {
-#if defined( APOLLO_PLATFORM_WINDOWS )
-      ImGui::TextUnformatted( "Nintendo defaults in the SDK Generic environment." );
-#else
-      ImGui::TextUnformatted( "Console database and Nintendo defaults." );
-#endif
-      if ( miiResources.IsReady() )
-      {
-        constexpr double MiB = 1024.0 * 1024.0;
-        ImGui::Text( "SDK inputs: shape %.2f MiB, texture %.2f MiB, Resource object %u B",
-                     static_cast<double>( miiResources.ShapeSize() ) / MiB,
-                     static_cast<double>( miiResources.TextureSize() ) / MiB,
-                     static_cast<unsigned int>( miiResources.ResourceObjectSize() ) );
-      }
-      else
-      {
-        ImGui::TextUnformatted( "SDK Mii resources unavailable; see diagnostics." );
-      }
-
-#if defined( APOLLO_PLATFORM_NX )
-      ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized (draw pending)" : "unavailable" );
-      ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready (texture draw pending)" : "unavailable" );
-#else
-      ( void )nxMiiModelReady;
-      ( void )nxFaceSourcesReady;
-#endif
-
-      if ( !miiCatalog.IsAvailable() )
-      {
-        ImGui::TextUnformatted( "Database unavailable; see diagnostics." );
-      }
-      else
-      {
-        ImGui::Text( "%u valid Miis (opaque snapshots in memory)", static_cast<unsigned int>( miiCatalog.Count() ) );
-
-        if ( ImGui::BeginChild( "Mii entries", ImVec2( 0, 180 ), ImGuiChildFlags_Borders ) )
-        {
-          for ( size_t i = 0; i < miiCatalog.Count(); ++i )
-          {
-            const mii::Entry * entry = miiCatalog.Get( i );
-            ImGui::PushID( static_cast<int>( i ) );
-            char label[ 72 ]{};
-            std::snprintf( label,
-                           sizeof( label ),
-                           "#%03u  %s",
-                           static_cast<unsigned int>( i + 1 ),
-                           entry->name[ 0 ] ? entry->name.data() : "(Unnamed)" );
-            if ( ImGui::Selectable( label, m_SelectedMii == static_cast<int>( i ) ) )
-            {
-              m_SelectedMii = static_cast<int>( i );
-            }
-            ImGui::PopID();
-          }
-        }
-        ImGui::EndChild();
-
-        if ( const mii::Entry * selected = miiCatalog.Get( static_cast<size_t>( m_SelectedMii ) ) )
-        {
-          ImGui::Text( "Source: %s | Height: %u | Build: %u | Snapshot: %u bytes",
-                       selected->source == mii::Source::Database ? "Console" : "Default",
-                       static_cast<unsigned int>( selected->height ),
-                       static_cast<unsigned int>( selected->build ),
-                       static_cast<unsigned int>( selected->snapshot.size() ) );
-        }
-      }
-      ImGui::TreePop();
+      ImGui::SetNextWindowFocus();
     }
 
-    DrawMiiPreviewCamera( previewCamera );
+    if ( !ImGui::Begin( "Mii Inspector" ) )
+    {
+      ImGui::End();
+      return;
+    }
+
+#if defined( APOLLO_PLATFORM_WINDOWS )
+    ImGui::TextUnformatted( "Nintendo defaults in the SDK Generic environment." );
+#else
+    ImGui::TextUnformatted( "Console database and Nintendo defaults." );
+#endif
+
+    if ( miiResources.IsReady() )
+    {
+      constexpr double MiB = 1024.0 * 1024.0;
+      ImGui::Text( "SDK inputs: shape %.2f MiB, texture %.2f MiB, Resource object %u B",
+                   static_cast<double>( miiResources.ShapeSize() ) / MiB,
+                   static_cast<double>( miiResources.TextureSize() ) / MiB,
+                   static_cast<unsigned int>( miiResources.ResourceObjectSize() ) );
+    }
+    else
+    {
+      ImGui::TextUnformatted( "SDK Mii resources unavailable; see diagnostics." );
+    }
+
+#if defined( APOLLO_PLATFORM_NX )
+    ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized (draw pending)" : "unavailable" );
+    ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready (texture draw pending)" : "unavailable" );
+#else
+    ( void )nxMiiModelReady;
+    ( void )nxFaceSourcesReady;
+#endif
+
+    ImGui::Separator();
+
+    if ( ImGui::BeginTabBar( "Mii options" ) )
+    {
+      if ( ImGui::BeginTabItem( "Catalog" ) )
+      {
+        DrawMiiCatalog( miiCatalog );
+        ImGui::EndTabItem();
+      }
+
+      if ( ImGui::BeginTabItem( "Preview camera" ) )
+      {
+        DrawMiiPreviewCamera( previewCamera );
+        ImGui::EndTabItem();
+      }
+
+      ImGui::EndTabBar();
+    }
 
 #if defined( APOLLO_PLATFORM_NX )
     ImGui::TextUnformatted( "Touch or use D-pad, A and B." );
 #endif
     ImGui::End();
-    ImGui::Render();
+  }
 
-    if ( !m_FirstFrameReported )
+  void DebugUi::DrawMiiCatalog( const mii::Catalog & miiCatalog ) noexcept
+  {
+    if ( !miiCatalog.IsAvailable() )
     {
-      diagnostics::Write( ImGui::GetDrawData()->TotalVtxCount > 0 ? diagnostics::Level::Information
-                                                                  : diagnostics::Level::Error,
-                          ImGui::GetDrawData()->TotalVtxCount > 0 ? "Dear ImGui produced debug UI draw data."
-                                                                  : "Dear ImGui produced no debug UI draw data." );
-      m_FirstFrameReported = true;
+      ImGui::TextUnformatted( "Database unavailable; see diagnostics." );
+      return;
+    }
+
+    ImGui::Text( "%u valid Miis (opaque snapshots in memory)", static_cast<unsigned int>( miiCatalog.Count() ) );
+
+    if ( ImGui::BeginChild( "Mii entries", ImVec2( 0, 180 ), ImGuiChildFlags_Borders ) )
+    {
+      for ( size_t i = 0; i < miiCatalog.Count(); ++i )
+      {
+        const mii::Entry * entry = miiCatalog.Get( i );
+        ImGui::PushID( static_cast<int>( i ) );
+
+        char label[ 72 ]{};
+        std::snprintf( label,
+                       sizeof( label ),
+                       "#%03u  %s",
+                       static_cast<unsigned int>( i + 1 ),
+                       entry->name[ 0 ] ? entry->name.data() : "(Unnamed)" );
+
+        if ( ImGui::Selectable( label, m_SelectedMii == static_cast<int>( i ) ) )
+        {
+          m_SelectedMii = static_cast<int>( i );
+        }
+
+        ImGui::PopID();
+      }
+    }
+    ImGui::EndChild();
+
+    if ( const mii::Entry * selected = miiCatalog.Get( static_cast<size_t>( m_SelectedMii ) ) )
+    {
+      ImGui::Text( "Source: %s | Height: %u | Build: %u | Snapshot: %u bytes",
+                   selected->source == mii::Source::Database ? "Console" : "Default",
+                   static_cast<unsigned int>( selected->height ),
+                   static_cast<unsigned int>( selected->build ),
+                   static_cast<unsigned int>( selected->snapshot.size() ) );
     }
   }
 
   void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept
   {
-    if ( !ImGui::TreeNode( "Mii preview camera" ) )
-    {
-      return;
-    }
-
     ImGui::TextUnformatted( "Head draw pending." );
 
     if ( ImGui::Button( "Front" ) )
@@ -319,8 +405,6 @@ namespace apollo::debug
                         mii::PreviewCamera::MaximumDistance,
                         "%.0f units" );
     previewCamera.Clamp();
-
-    ImGui::TreePop();
   }
 
 #if defined( APOLLO_PLATFORM_NX )

@@ -36,6 +36,14 @@ namespace apollo::debug
     void Shutdown() noexcept;
 
   private:
+    void DrawDiagnosticsWindow( render::Extent2D extent ) noexcept;
+    void DrawMiiWindow( render::Extent2D           extent,
+                        const mii::Catalog &       miiCatalog,
+                        const mii::ResourceFiles & miiResources,
+                        bool                       nxMiiModelReady,
+                        bool                       nxFaceSourcesReady,
+                        mii::PreviewCamera &       previewCamera ) noexcept;
+    void DrawMiiCatalog( const mii::Catalog & miiCatalog ) noexcept;
     void DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept;
 #if defined( APOLLO_PLATFORM_NX )
     void         UpdateNxInput( render::Extent2D extent ) noexcept;
