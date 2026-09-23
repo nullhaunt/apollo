@@ -31,6 +31,7 @@ namespace apollo::debug
                      const mii::Catalog &       miiCatalog,
                      const mii::ResourceFiles & miiResources,
                      bool                       nxMiiModelReady,
+                     bool                       nxFaceSourcesReady,
                      mii::PreviewCamera &       previewCamera ) noexcept;
     void Shutdown() noexcept;
 

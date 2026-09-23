@@ -188,7 +188,8 @@ namespace apollo
       }
 
   #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame( { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false, m_MiiPreviewCamera );
+      m_DebugUi.BeginFrame(
+        { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false, false, m_MiiPreviewCamera );
   #endif
       const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
       if ( frame == render::Result::SurfaceOutOfDate )
@@ -235,7 +236,12 @@ namespace apollo
         return ApplicationExitStatus::PlatformFailure;
       }
   #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame( extent, m_MiiCatalog, m_MiiResources, m_MiiModel.IsReady(), m_MiiPreviewCamera );
+      m_DebugUi.BeginFrame( extent,
+                            m_MiiCatalog,
+                            m_MiiResources,
+                            m_MiiModel.IsReady(),
+                            m_MiiModel.AreFaceSourcesReady(),
+                            m_MiiPreviewCamera );
   #endif
       if ( m_NvnPresenter.PresentFrame() != render::Result::Success )
       {

@@ -101,6 +101,7 @@ namespace apollo::debug
                             const mii::Catalog &       miiCatalog,
                             const mii::ResourceFiles & miiResources,
                             bool                       nxMiiModelReady,
+                            bool                       nxFaceSourcesReady,
                             mii::PreviewCamera &       previewCamera ) noexcept
   {
     if ( !m_Ready )
@@ -213,8 +214,10 @@ namespace apollo::debug
 
 #if defined( APOLLO_PLATFORM_NX )
       ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized (draw pending)" : "unavailable" );
+      ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready (texture draw pending)" : "unavailable" );
 #else
       ( void )nxMiiModelReady;
+      ( void )nxFaceSourcesReady;
 #endif
 
       if ( !miiCatalog.IsAvailable() )

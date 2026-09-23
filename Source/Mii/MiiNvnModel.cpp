@@ -58,7 +58,7 @@ namespace apollo::mii
 
     InitializeGfx( context );
 
-    if ( !InitializeResource( files ) || !InitializeModel( entry ) )
+    if ( !InitializeResource( files ) || !InitializeModel( entry ) || !InitializeFaceSources( entry ) )
     {
       Shutdown();
       return false;
@@ -190,8 +190,153 @@ namespace apollo::mii
     return true;
   }
 
+  bool NvnModel::InitializeFaceSources( const Entry & entry ) noexcept
+  {
+    constexpr int expressionFlags = nn::mii::ExpressionFlag_Normal;
+
+    const size_t facelineSize          = nn::mii::Faceline::CalculateMemorySize();
+    const size_t facelineAlignment     = nn::mii::Faceline::CalculateMemoryAlignment();
+    const size_t maskSize              = nn::mii::Mask::CalculateMemorySize();
+    const size_t maskAlignment         = nn::mii::Mask::CalculateMemoryAlignment();
+    const size_t facelinePoolSize      = nn::mii::Faceline::CalculateMemoryPoolSize( &m_GfxDevice, m_Resource );
+    const size_t facelinePoolAlignment = nn::mii::Faceline::CalculateMemoryPoolAlignment( &m_GfxDevice, m_Resource );
+    const size_t maskPoolSize = nn::mii::Mask::CalculateMemoryPoolSize( &m_GfxDevice, m_Resource, expressionFlags );
+    const size_t maskPoolAlignment =
+      nn::mii::Mask::CalculateMemoryPoolAlignment( &m_GfxDevice, m_Resource, expressionFlags );
+
+    if ( facelineSize == 0 || facelineAlignment == 0 || maskSize == 0 || maskAlignment == 0 || facelinePoolSize == 0 ||
+         facelinePoolAlignment == 0 || maskPoolSize == 0 || maskPoolAlignment == 0 )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Mii face source layout calculation failed." );
+      return false;
+    }
+
+    const size_t maskPoolOffset = RoundUp( facelinePoolSize, maskPoolAlignment );
+    if ( maskPoolOffset == 0 || maskPoolOffset > MaximumModelPoolBytes ||
+         maskPoolSize > MaximumModelPoolBytes - maskPoolOffset )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Mii face source pool exceeds the checkpoint cap." );
+      return false;
+    }
+
+    nn::gfx::MemoryPool::InfoType poolInfo;
+    poolInfo.SetDefault();
+    poolInfo.SetMemoryPoolProperty( nn::gfx::MemoryPoolProperty_CpuCached | nn::gfx::MemoryPoolProperty_GpuCached );
+
+    const size_t poolAlignment = nn::gfx::MemoryPool::GetPoolMemoryAlignment( &m_GfxDevice, poolInfo );
+    const size_t granularity   = nn::gfx::MemoryPool::GetPoolMemorySizeGranularity( &m_GfxDevice, poolInfo );
+    const size_t allocatedSize = RoundUp( maskPoolOffset + maskPoolSize, granularity );
+
+    if ( poolAlignment == 0 || allocatedSize == 0 || allocatedSize > MaximumModelPoolBytes )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Mii face source pool requirements are unsupported." );
+      return false;
+    }
+
+    const size_t requestedAlignment = poolAlignment > facelinePoolAlignment ? poolAlignment : facelinePoolAlignment;
+    const size_t memoryAlignment    = requestedAlignment > maskPoolAlignment ? requestedAlignment : maskPoolAlignment;
+
+    m_FaceSourcePoolMemory = AllocateAligned( allocatedSize, memoryAlignment );
+    m_FacelineMemory       = AllocateAligned( facelineSize, facelineAlignment );
+    m_MaskMemory           = AllocateAligned( maskSize, maskAlignment );
+    void * temporary       = AllocateAligned( nn::mii::TemporaryBufferSize, alignof( nn::mii::TemporaryBuffer ) );
+
+    if ( m_FaceSourcePoolMemory == nullptr || m_FacelineMemory == nullptr || m_MaskMemory == nullptr ||
+         temporary == nullptr )
+    {
+      std::free( temporary );
+      diagnostics::Write( diagnostics::Level::Error, "Mii face source allocation failed." );
+      return false;
+    }
+
+    m_FaceSourcePoolAllocation.Acquire( allocatedSize );
+    poolInfo.SetPoolMemory( m_FaceSourcePoolMemory, allocatedSize );
+    m_FaceSourcePool.Initialize( &m_GfxDevice, poolInfo );
+    m_FaceSourcePoolReady = true;
+
+    nn::mii::CharInfo charInfo{};
+    std::memcpy( &charInfo, entry.snapshot.data(), CharInfoBytes );
+
+    const nn::Result facelineResult = m_Faceline.Initialize( m_FacelineMemory,
+                                                             facelineSize,
+                                                             &m_GfxDevice,
+                                                             &m_FaceSourcePool,
+                                                             0,
+                                                             facelinePoolSize,
+                                                             static_cast<nn::mii::TemporaryBuffer *>( temporary ),
+                                                             m_Resource,
+                                                             charInfo,
+                                                             false );
+    if ( !facelineResult.IsSuccess() )
+    {
+      std::free( temporary );
+
+      char message[ 128 ]{};
+      std::snprintf( message,
+                     sizeof( message ),
+                     "Mii Faceline initialization failed: module %d, description %d.",
+                     facelineResult.GetModule(),
+                     facelineResult.GetDescription() );
+      diagnostics::Write( diagnostics::Level::Error, message );
+      return false;
+    }
+
+    const nn::Result maskResult = m_Mask.Initialize( m_MaskMemory,
+                                                     maskSize,
+                                                     &m_GfxDevice,
+                                                     &m_FaceSourcePool,
+                                                     static_cast<ptrdiff_t>( maskPoolOffset ),
+                                                     maskPoolSize,
+                                                     static_cast<nn::mii::TemporaryBuffer *>( temporary ),
+                                                     m_Resource,
+                                                     charInfo,
+                                                     expressionFlags,
+                                                     false );
+    std::free( temporary );
+
+    if ( !maskResult.IsSuccess() )
+    {
+      char message[ 128 ]{};
+      std::snprintf( message,
+                     sizeof( message ),
+                     "Mii Mask initialization failed: module %d, description %d.",
+                     maskResult.GetModule(),
+                     maskResult.GetDescription() );
+      diagnostics::Write( diagnostics::Level::Error, message );
+      return false;
+    }
+
+    diagnostics::Write( diagnostics::Level::Information, "Mii Faceline and normal-expression Mask sources ready." );
+    return true;
+  }
+
   void NvnModel::Shutdown() noexcept
   {
+    if ( m_Mask.IsInitialized() )
+    {
+      m_Mask.Finalize( &m_GfxDevice );
+    }
+
+    if ( m_Faceline.IsInitialized() )
+    {
+      m_Faceline.Finalize( &m_GfxDevice );
+    }
+
+    if ( m_FaceSourcePoolReady )
+    {
+      m_FaceSourcePool.Finalize( &m_GfxDevice );
+    }
+    m_FaceSourcePoolReady = false;
+
+    std::free( m_MaskMemory );
+    std::free( m_FacelineMemory );
+    std::free( m_FaceSourcePoolMemory );
+    m_FaceSourcePoolAllocation.Release();
+
+    m_MaskMemory           = nullptr;
+    m_FacelineMemory       = nullptr;
+    m_FaceSourcePoolMemory = nullptr;
+
     if ( m_Model.IsInitialized() )
     {
       m_Model.Finalize( &m_GfxDevice );
