@@ -1,11 +1,22 @@
 #include "Render/Vulkan/VulkanPresenter.hpp"
 
 #include "Platform/Diagnostics.hpp"
+#include "Render/IndexedQuad.hpp"
+#include "Render/IndexedQuadTexture.hpp"
 #include "Render/Vulkan/VulkanBootstrap.hpp"
 #include "Render/Vulkan/VulkanContext.hpp"
 #include "Render/Vulkan/VulkanSwapchain.hpp"
+#include "IndexedQuadShader.hpp"
 
+#if !defined( APOLLO_BUILD_RELEASE )
+  #include <imgui.h>
+  #include <backends/imgui_impl_vulkan.h>
+#endif
+
+#include <cstddef>
 #include <cstdio>
+#include <cstring>
+#include <iterator>
 #include <limits>
 #include <new>
 
@@ -45,11 +56,32 @@ namespace apollo::render::vulkan
     }
     m_Context   = &context;
     m_Swapchain = &swapchain;
-    if ( !CreateCommands() || !CreateSynchronization() )
+    if ( !CreateCommands() || !CreateSynchronization() || !CreateGeometry() || !CreateTexture() || !CreatePipeline() )
     {
       Shutdown();
       return false;
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    ImGui_ImplVulkan_InitInfo info{};
+    info.ApiVersion = VK_API_VERSION_1_0;
+    info.Instance = static_cast<VkInstance>( m_Context->GetInstance() );
+    info.PhysicalDevice = static_cast<VkPhysicalDevice>( m_Context->GetPhysicalDevice() );
+    info.Device = static_cast<VkDevice>( m_Context->GetDevice() );
+    info.QueueFamily = m_Context->GetGraphicsFamily();
+    info.Queue = static_cast<VkQueue>( m_Context->GetGraphicsQueue() );
+    info.DescriptorPoolSize = 64;
+    info.MinImageCount = 2;
+    info.ImageCount = m_Swapchain->GetImageCount();
+    info.PipelineInfoMain.RenderPass = static_cast<VkRenderPass>( m_Swapchain->GetRenderPass() );
+    info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    if ( !ImGui_ImplVulkan_Init( &info ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "ImGui Vulkan backend initialization failed." );
+      Shutdown();
+      return false;
+    }
+    m_ImGuiReady = true;
+#endif
     return true;
   }
 
@@ -119,7 +151,367 @@ namespace apollo::render::vulkan
     return true;
   }
 
-  bool VulkanPresenter::RecordClear( u32 imageIndex, ClearColor color ) noexcept
+  bool VulkanPresenter::CreateHostBuffer( vk::DeviceSize size,
+                                          vk::BufferUsageFlags usage,
+                                          const void * data,
+                                          vk::Buffer & buffer,
+                                          vk::DeviceMemory & memory ) noexcept
+  {
+    const vk::Device device = m_Context->GetDevice();
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.size  = size;
+    bufferInfo.usage = usage;
+    vk::Result result = device.createBuffer( &bufferInfo, nullptr, &buffer );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateBuffer", result );
+      return false;
+    }
+
+    vk::MemoryRequirements requirements{};
+    device.getBufferMemoryRequirements( buffer, &requirements );
+    vk::PhysicalDeviceMemoryProperties properties{};
+    m_Context->GetPhysicalDevice().getMemoryProperties( &properties );
+    u32 memoryType = properties.memoryTypeCount;
+    for ( u32 index = 0; index < properties.memoryTypeCount; ++index )
+    {
+      const auto flags = properties.memoryTypes[ index ].propertyFlags;
+      if ( ( requirements.memoryTypeBits & ( 1u << index ) ) != 0 &&
+           ( flags & ( vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent ) ) ==
+             ( vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent ) )
+      {
+        memoryType = index;
+        break;
+      }
+    }
+    if ( memoryType == properties.memoryTypeCount )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "No host-visible coherent Vulkan buffer memory type." );
+      return false;
+    }
+
+    vk::MemoryAllocateInfo allocation{};
+    allocation.allocationSize  = requirements.size;
+    allocation.memoryTypeIndex = memoryType;
+    result                     = device.allocateMemory( &allocation, nullptr, &memory );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkAllocateMemory", result );
+      return false;
+    }
+    result = device.bindBufferMemory( buffer, memory, 0 );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkBindBufferMemory", result );
+      return false;
+    }
+
+    void * mapped{};
+    result = device.mapMemory( memory, 0, size, {}, &mapped );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkMapMemory", result );
+      return false;
+    }
+    std::memcpy( mapped, data, static_cast<size_t>( size ) );
+    device.unmapMemory( memory );
+    return true;
+  }
+
+  bool VulkanPresenter::CreateGeometry() noexcept
+  {
+    return CreateHostBuffer( sizeof( IndexedQuadVertices ), vk::BufferUsageFlagBits::eVertexBuffer,
+                             IndexedQuadVertices, m_VertexBuffer, m_VertexMemory ) &&
+           CreateHostBuffer( sizeof( IndexedQuadIndices ), vk::BufferUsageFlagBits::eIndexBuffer,
+                             IndexedQuadIndices, m_IndexBuffer, m_IndexMemory );
+  }
+
+  bool VulkanPresenter::CreateTexture() noexcept
+  {
+    const vk::Device device = m_Context->GetDevice();
+    if ( !CreateHostBuffer( IndexedQuadTexels.size(), vk::BufferUsageFlagBits::eTransferSrc,
+                           IndexedQuadTexels.data(), m_TextureStagingBuffer, m_TextureStagingMemory ) )
+    {
+      return false;
+    }
+
+    vk::ImageCreateInfo imageInfo{};
+    imageInfo.imageType = vk::ImageType::e2D;
+    imageInfo.format = vk::Format::eR8G8B8A8Unorm;
+    imageInfo.extent = vk::Extent3D{ IndexedQuadTextureSize, IndexedQuadTextureSize, 1 };
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = vk::SampleCountFlagBits::e1;
+    imageInfo.tiling = vk::ImageTiling::eOptimal;
+    imageInfo.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+    vk::Result result = device.createImage( &imageInfo, nullptr, &m_TextureImage );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateImage(texture)", result );
+      return false;
+    }
+    vk::MemoryRequirements requirements{};
+    device.getImageMemoryRequirements( m_TextureImage, &requirements );
+    vk::PhysicalDeviceMemoryProperties properties{};
+    m_Context->GetPhysicalDevice().getMemoryProperties( &properties );
+    u32 memoryType = properties.memoryTypeCount;
+    for ( u32 index = 0; index < properties.memoryTypeCount; ++index )
+    {
+      if ( ( requirements.memoryTypeBits & ( 1u << index ) ) != 0 &&
+           ( properties.memoryTypes[ index ].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal ) )
+      {
+        memoryType = index;
+        break;
+      }
+    }
+    if ( memoryType == properties.memoryTypeCount )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "No device-local Vulkan image memory type." );
+      return false;
+    }
+    vk::MemoryAllocateInfo allocation{};
+    allocation.allocationSize = requirements.size;
+    allocation.memoryTypeIndex = memoryType;
+    result = device.allocateMemory( &allocation, nullptr, &m_TextureMemory );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkAllocateMemory(texture)", result );
+      return false;
+    }
+    result = device.bindImageMemory( m_TextureImage, m_TextureMemory, 0 );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkBindImageMemory(texture)", result );
+      return false;
+    }
+
+    vk::CommandBufferBeginInfo begin{};
+    begin.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    result = m_CommandBuffer.begin( &begin );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkBeginCommandBuffer(texture)", result );
+      return false;
+    }
+    vk::ImageMemoryBarrier barrier{};
+    barrier.oldLayout = vk::ImageLayout::eUndefined;
+    barrier.newLayout = vk::ImageLayout::eTransferDstOptimal;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = m_TextureImage;
+    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+    m_CommandBuffer.pipelineBarrier( vk::PipelineStageFlagBits::eTopOfPipe,
+                                     vk::PipelineStageFlagBits::eTransfer, {}, 0, nullptr, 0, nullptr, 1, &barrier );
+    vk::BufferImageCopy copy{};
+    copy.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageExtent = imageInfo.extent;
+    m_CommandBuffer.copyBufferToImage( m_TextureStagingBuffer, m_TextureImage,
+                                        vk::ImageLayout::eTransferDstOptimal, 1, &copy );
+    barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+    barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+    barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+    m_CommandBuffer.pipelineBarrier( vk::PipelineStageFlagBits::eTransfer,
+                                     vk::PipelineStageFlagBits::eFragmentShader, {}, 0, nullptr, 0, nullptr, 1, &barrier );
+    result = m_CommandBuffer.end();
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkEndCommandBuffer(texture)", result );
+      return false;
+    }
+    vk::SubmitInfo submit{};
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &m_CommandBuffer;
+    result = m_Context->GetGraphicsQueue().submit( 1, &submit, {} );
+    if ( result == vk::Result::eSuccess )
+    {
+      result = m_Context->GetGraphicsQueue().waitIdle();
+    }
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "Vulkan texture upload", result );
+      return false;
+    }
+
+    vk::ImageViewCreateInfo viewInfo{};
+    viewInfo.image = m_TextureImage;
+    viewInfo.viewType = vk::ImageViewType::e2D;
+    viewInfo.format = imageInfo.format;
+    viewInfo.subresourceRange = barrier.subresourceRange;
+    result = device.createImageView( &viewInfo, nullptr, &m_TextureView );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateImageView(texture)", result );
+      return false;
+    }
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = vk::Filter::eNearest;
+    samplerInfo.minFilter = vk::Filter::eNearest;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eNearest;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    samplerInfo.maxLod = 0.0f;
+    result = device.createSampler( &samplerInfo, nullptr, &m_TextureSampler );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateSampler(texture)", result );
+      return false;
+    }
+    vk::DescriptorSetLayoutBinding bindings[ 2 ]{};
+    bindings[ 0 ].binding = 0;
+    bindings[ 0 ].descriptorType = vk::DescriptorType::eSampledImage;
+    bindings[ 0 ].descriptorCount = 1;
+    bindings[ 0 ].stageFlags = vk::ShaderStageFlagBits::eFragment;
+    bindings[ 1 ].binding = 1;
+    bindings[ 1 ].descriptorType = vk::DescriptorType::eSampler;
+    bindings[ 1 ].descriptorCount = 1;
+    bindings[ 1 ].stageFlags = vk::ShaderStageFlagBits::eFragment;
+    vk::DescriptorSetLayoutCreateInfo setInfo{};
+    setInfo.bindingCount = 2;
+    setInfo.pBindings = bindings;
+    result = device.createDescriptorSetLayout( &setInfo, nullptr, &m_TextureSetLayout );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateDescriptorSetLayout", result );
+      return false;
+    }
+    vk::DescriptorPoolSize poolSizes[]{
+      { vk::DescriptorType::eSampledImage, 1 }, { vk::DescriptorType::eSampler, 1 }
+    };
+    vk::DescriptorPoolCreateInfo poolInfo{};
+    poolInfo.maxSets = 1;
+    poolInfo.poolSizeCount = 2;
+    poolInfo.pPoolSizes = poolSizes;
+    result = device.createDescriptorPool( &poolInfo, nullptr, &m_DescriptorPool );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateDescriptorPool", result );
+      return false;
+    }
+    vk::DescriptorSetAllocateInfo setAllocation{};
+    setAllocation.descriptorPool = m_DescriptorPool;
+    setAllocation.descriptorSetCount = 1;
+    setAllocation.pSetLayouts = &m_TextureSetLayout;
+    result = device.allocateDescriptorSets( &setAllocation, &m_TextureSet );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkAllocateDescriptorSets", result );
+      return false;
+    }
+    vk::DescriptorImageInfo descriptorImage{ m_TextureSampler, m_TextureView,
+                                              vk::ImageLayout::eShaderReadOnlyOptimal };
+    vk::WriteDescriptorSet writes[ 2 ]{};
+    writes[ 0 ].dstSet = m_TextureSet;
+    writes[ 0 ].dstBinding = 0;
+    writes[ 0 ].descriptorCount = 1;
+    writes[ 0 ].descriptorType = vk::DescriptorType::eSampledImage;
+    writes[ 0 ].pImageInfo = &descriptorImage;
+    writes[ 1 ].dstSet = m_TextureSet;
+    writes[ 1 ].dstBinding = 1;
+    writes[ 1 ].descriptorCount = 1;
+    writes[ 1 ].descriptorType = vk::DescriptorType::eSampler;
+    writes[ 1 ].pImageInfo = &descriptorImage;
+    device.updateDescriptorSets( 2, writes, 0, nullptr );
+    return true;
+  }
+
+  bool VulkanPresenter::CreatePipeline() noexcept
+  {
+    const vk::Device device = m_Context->GetDevice();
+    vk::ShaderModuleCreateInfo shaderInfo{};
+    shaderInfo.codeSize = sizeof( generated::IndexedQuadVsSpirv );
+    shaderInfo.pCode = reinterpret_cast<const u32 *>( generated::IndexedQuadVsSpirv );
+    vk::Result result = device.createShaderModule( &shaderInfo, nullptr, &m_VertexShader );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateShaderModule(vertex)", result );
+      return false;
+    }
+    shaderInfo.codeSize = sizeof( generated::IndexedQuadPsSpirv );
+    shaderInfo.pCode = reinterpret_cast<const u32 *>( generated::IndexedQuadPsSpirv );
+    result = device.createShaderModule( &shaderInfo, nullptr, &m_FragmentShader );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateShaderModule(fragment)", result );
+      return false;
+    }
+
+    const vk::PipelineShaderStageCreateInfo stages[]{
+      { {}, vk::ShaderStageFlagBits::eVertex, m_VertexShader, "VSMain" },
+      { {}, vk::ShaderStageFlagBits::eFragment, m_FragmentShader, "PSMain" },
+    };
+    const vk::VertexInputBindingDescription binding{ 0, sizeof( IndexedQuadVertex ), vk::VertexInputRate::eVertex };
+    const vk::VertexInputAttributeDescription attributes[]{
+      { 0, 0, vk::Format::eR32G32Sfloat, static_cast<u32>( offsetof( IndexedQuadVertex, position ) ) },
+      { 1, 0, vk::Format::eR32G32B32Sfloat, static_cast<u32>( offsetof( IndexedQuadVertex, color ) ) },
+      { 2, 0, vk::Format::eR32G32Sfloat, static_cast<u32>( offsetof( IndexedQuadVertex, uv ) ) },
+    };
+    vk::PipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.vertexBindingDescriptionCount = 1;
+    vertexInput.pVertexBindingDescriptions = &binding;
+    vertexInput.vertexAttributeDescriptionCount = 3;
+    vertexInput.pVertexAttributeDescriptions = attributes;
+
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
+    vk::PipelineViewportStateCreateInfo viewport{};
+    viewport.viewportCount = 1;
+    viewport.scissorCount = 1;
+    vk::PipelineRasterizationStateCreateInfo raster{};
+    raster.polygonMode = vk::PolygonMode::eFill;
+    raster.cullMode = vk::CullModeFlagBits::eNone;
+    raster.frontFace = vk::FrontFace::eCounterClockwise;
+    raster.lineWidth = 1.0f;
+    vk::PipelineMultisampleStateCreateInfo multisample{};
+    multisample.rasterizationSamples = vk::SampleCountFlagBits::e1;
+    vk::PipelineColorBlendAttachmentState attachment{};
+    attachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                                vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    vk::PipelineColorBlendStateCreateInfo blend{};
+    blend.attachmentCount = 1;
+    blend.pAttachments = &attachment;
+    const vk::DynamicState dynamicStates[]{ vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+    vk::PipelineDynamicStateCreateInfo dynamic{};
+    dynamic.dynamicStateCount = 2;
+    dynamic.pDynamicStates = dynamicStates;
+
+    vk::PipelineLayoutCreateInfo layoutInfo{};
+    layoutInfo.setLayoutCount = 1;
+    layoutInfo.pSetLayouts = &m_TextureSetLayout;
+    result = device.createPipelineLayout( &layoutInfo, nullptr, &m_PipelineLayout );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreatePipelineLayout", result );
+      return false;
+    }
+    vk::GraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = stages;
+    pipelineInfo.pVertexInputState = &vertexInput;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewport;
+    pipelineInfo.pRasterizationState = &raster;
+    pipelineInfo.pMultisampleState = &multisample;
+    pipelineInfo.pColorBlendState = &blend;
+    pipelineInfo.pDynamicState = &dynamic;
+    pipelineInfo.layout = m_PipelineLayout;
+    pipelineInfo.renderPass = m_Swapchain->GetRenderPass();
+    result = device.createGraphicsPipelines( {}, 1, &pipelineInfo, nullptr, &m_Pipeline );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateGraphicsPipelines", result );
+      return false;
+    }
+    return true;
+  }
+
+  bool VulkanPresenter::RecordFrame( u32 imageIndex, ClearColor color ) noexcept
   {
     vk::Result result = m_CommandBuffer.reset();
     if ( result != vk::Result::eSuccess )
@@ -150,6 +542,25 @@ namespace apollo::render::vulkan
     passInfo.clearValueCount   = 1;
     passInfo.pClearValues      = &clear;
     m_CommandBuffer.beginRenderPass( &passInfo, vk::SubpassContents::eInline );
+    const vk::Extent2D extent = m_Swapchain->GetExtent();
+    const vk::Viewport viewport{ 0.0f, 0.0f, static_cast<float>( extent.width ),
+                                 static_cast<float>( extent.height ), 0.0f, 1.0f };
+    const vk::Rect2D scissor{ { 0, 0 }, extent };
+    m_CommandBuffer.setViewport( 0, 1, &viewport );
+    m_CommandBuffer.setScissor( 0, 1, &scissor );
+    m_CommandBuffer.bindPipeline( vk::PipelineBindPoint::eGraphics, m_Pipeline );
+    m_CommandBuffer.bindDescriptorSets( vk::PipelineBindPoint::eGraphics, m_PipelineLayout,
+                                        0, 1, &m_TextureSet, 0, nullptr );
+    const vk::DeviceSize offset{};
+    m_CommandBuffer.bindVertexBuffers( 0, 1, &m_VertexBuffer, &offset );
+    m_CommandBuffer.bindIndexBuffer( m_IndexBuffer, 0, vk::IndexType::eUint16 );
+    m_CommandBuffer.drawIndexed( static_cast<u32>( std::size( IndexedQuadIndices ) ), 1, 0, 0, 0 );
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( m_ImGuiReady )
+    {
+      ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), static_cast<VkCommandBuffer>( m_CommandBuffer ) );
+    }
+#endif
     m_CommandBuffer.endRenderPass();
 
     result = m_CommandBuffer.end();
@@ -161,7 +572,7 @@ namespace apollo::render::vulkan
     return true;
   }
 
-  Result VulkanPresenter::PresentClear( ClearColor color ) noexcept
+  Result VulkanPresenter::PresentFrame( ClearColor color ) noexcept
   {
     if ( m_Context == nullptr || m_Swapchain == nullptr )
     {
@@ -175,7 +586,7 @@ namespace apollo::render::vulkan
     {
       return acquired;
     }
-    if ( imageIndex >= m_RenderFinishedCount || !RecordClear( imageIndex, color ) )
+    if ( imageIndex >= m_RenderFinishedCount || !RecordFrame( imageIndex, color ) )
     {
       return Result::Failure;
     }
@@ -269,12 +680,59 @@ namespace apollo::render::vulkan
     if ( device )
     {
       ( void )device.waitIdle();
+#if !defined( APOLLO_BUILD_RELEASE )
+      if ( m_ImGuiReady )
+      {
+        ImGui_ImplVulkan_Shutdown();
+        m_ImGuiReady = false;
+      }
+#endif
+      if ( m_Pipeline )
+      {
+        device.destroyPipeline( m_Pipeline );
+      }
+      if ( m_PipelineLayout )
+      {
+        device.destroyPipelineLayout( m_PipelineLayout );
+      }
+      if ( m_DescriptorPool ) device.destroyDescriptorPool( m_DescriptorPool );
+      if ( m_TextureSetLayout ) device.destroyDescriptorSetLayout( m_TextureSetLayout );
+      if ( m_TextureSampler ) device.destroySampler( m_TextureSampler );
+      if ( m_TextureView ) device.destroyImageView( m_TextureView );
+      if ( m_TextureImage ) device.destroyImage( m_TextureImage );
+      if ( m_TextureMemory ) device.freeMemory( m_TextureMemory );
+      if ( m_TextureStagingBuffer ) device.destroyBuffer( m_TextureStagingBuffer );
+      if ( m_TextureStagingMemory ) device.freeMemory( m_TextureStagingMemory );
+      if ( m_FragmentShader )
+      {
+        device.destroyShaderModule( m_FragmentShader );
+      }
+      if ( m_VertexShader )
+      {
+        device.destroyShaderModule( m_VertexShader );
+      }
+      if ( m_IndexBuffer )
+      {
+        device.destroyBuffer( m_IndexBuffer );
+      }
+      if ( m_IndexMemory )
+      {
+        device.freeMemory( m_IndexMemory );
+      }
+      if ( m_VertexBuffer )
+      {
+        device.destroyBuffer( m_VertexBuffer );
+      }
+      if ( m_VertexMemory )
+      {
+        device.freeMemory( m_VertexMemory );
+      }
       if ( m_PresentedFrames != 0 )
       {
         char message[ 80 ]{};
         std::snprintf( message,
                        sizeof( message ),
-                       "Vulkan clear frames presented: %llu.",
+                       "Vulkan frames presented: %llu.",
                        static_cast<unsigned long long>( m_PresentedFrames ) );
         diagnostics::Write( diagnostics::Level::Information, message );
       }
@@ -299,6 +757,23 @@ namespace apollo::render::vulkan
       }
     }
     m_FrameFence      = nullptr;
+    m_Pipeline        = nullptr;
+    m_PipelineLayout  = nullptr;
+    m_DescriptorPool = nullptr;
+    m_TextureSetLayout = nullptr;
+    m_TextureSet = nullptr;
+    m_TextureSampler = nullptr;
+    m_TextureView = nullptr;
+    m_TextureImage = nullptr;
+    m_TextureMemory = nullptr;
+    m_TextureStagingBuffer = nullptr;
+    m_TextureStagingMemory = nullptr;
+    m_VertexShader    = nullptr;
+    m_FragmentShader  = nullptr;
+    m_VertexBuffer    = nullptr;
+    m_VertexMemory    = nullptr;
+    m_IndexBuffer     = nullptr;
+    m_IndexMemory     = nullptr;
     m_PresentedFrames = 0;
     m_RenderFinished.reset();
     m_RenderFinishedCount = 0;

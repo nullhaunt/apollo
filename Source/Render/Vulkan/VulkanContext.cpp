@@ -248,6 +248,11 @@ namespace apollo::render::vulkan
     return m_PhysicalDevice;
   }
 
+  vk::Instance VulkanContext::GetInstance() const noexcept
+  {
+    return m_Instance;
+  }
+
   vk::Device VulkanContext::GetDevice() const noexcept
   {
     return m_Device;

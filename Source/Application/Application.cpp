@@ -6,6 +6,8 @@
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Render/RenderTypes.hpp"
+#elif defined( APOLLO_PLATFORM_NX )
+  #include <nn/oe.h>
 #endif
 
 namespace apollo
@@ -85,7 +87,10 @@ namespace apollo
         }
       }
 
-      const render::Result frame = m_Presenter.PresentClear( { 0.08f, 0.12f, 0.20f, 1.0f } );
+#if !defined( APOLLO_BUILD_RELEASE )
+      m_DebugUi.BeginFrame( { extent.width, extent.height } );
+#endif
+      const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
       if ( frame == render::Result::SurfaceOutOfDate )
       {
         const render::Result recovered = RecreatePresentation( extent );
@@ -100,6 +105,41 @@ namespace apollo
       if ( frame != render::Result::Success )
       {
         diagnostics::Write( diagnostics::Level::Error, "Vulkan presentation failed." );
+        Shutdown();
+        return ApplicationExitStatus::PlatformFailure;
+      }
+    }
+#elif defined( APOLLO_PLATFORM_NX )
+    while ( true )
+    {
+      nn::oe::Message message{};
+      bool exitRequested{};
+      while ( nn::oe::TryPopNotificationMessage( &message ) )
+      {
+        if ( message == nn::oe::MessageExitRequest )
+        {
+          exitRequested = true;
+        }
+      }
+      if ( exitRequested )
+      {
+        break;
+      }
+
+      const bool handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
+      const render::Extent2D extent = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
+      if ( !m_NvnPresenter.Resize( extent ) )
+      {
+        diagnostics::Write( diagnostics::Level::Error, "NVN presentation resize failed." );
+        Shutdown();
+        return ApplicationExitStatus::PlatformFailure;
+      }
+#if !defined( APOLLO_BUILD_RELEASE )
+      m_DebugUi.BeginFrame( extent );
+#endif
+      if ( m_NvnPresenter.PresentFrame() != render::Result::Success )
+      {
+        diagnostics::Write( diagnostics::Level::Error, "NVN presentation failed." );
         Shutdown();
         return ApplicationExitStatus::PlatformFailure;
       }
@@ -132,6 +172,13 @@ namespace apollo
       diagnostics::Write( diagnostics::Level::Error, "Vulkan context initialization failed." );
       return false;
     }
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( !m_DebugUi.Initialize( m_Window.GetNativeHandle() ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Debug UI initialization failed." );
+      return false;
+    }
+#endif
     const platform::ClientExtent extent = m_Window.GetClientExtent();
     if ( !m_Swapchain.Initialize( m_Vulkan, { extent.width, extent.height } ) ||
          !m_Presenter.Initialize( m_Vulkan, m_Swapchain ) )
@@ -140,6 +187,26 @@ namespace apollo
       return false;
     }
     m_PresentationReady = true;
+#elif defined( APOLLO_PLATFORM_NX )
+    if ( !m_Nvn.Initialize() )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "NVN context initialization failed." );
+      return false;
+    }
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( !m_DebugUi.Initialize() )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Debug UI initialization failed." );
+      return false;
+    }
+#endif
+    const bool handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
+    const render::Extent2D extent = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
+    if ( !m_NvnPresenter.Initialize( m_Nvn, extent ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "NVN presentation initialization failed." );
+      return false;
+    }
 #endif
 
     m_State = State::Initialized;
@@ -159,9 +226,18 @@ namespace apollo
 #if defined( APOLLO_PLATFORM_WINDOWS )
     m_PresentationReady = false;
     m_Presenter.Shutdown();
+#if !defined( APOLLO_BUILD_RELEASE )
+    m_DebugUi.Shutdown();
+#endif
     m_Swapchain.Shutdown();
     m_Vulkan.Shutdown();
     m_Window.Destroy();
+#elif defined( APOLLO_PLATFORM_NX )
+    m_NvnPresenter.Shutdown();
+#if !defined( APOLLO_BUILD_RELEASE )
+    m_DebugUi.Shutdown();
+#endif
+    m_Nvn.Shutdown();
 #endif
 
     diagnostics::Write( diagnostics::Level::Information, "Shutdown complete." );

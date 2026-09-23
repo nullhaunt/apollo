@@ -1,12 +1,18 @@
 #pragma once
 
 #include "Platform/Platform.hpp"
+#if !defined( APOLLO_BUILD_RELEASE )
+  #include "Debug/DebugUi.hpp"
+#endif
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Platform/Windows/WindowsWindow.hpp"
   #include "Render/Vulkan/VulkanContext.hpp"
   #include "Render/Vulkan/VulkanPresenter.hpp"
   #include "Render/Vulkan/VulkanSwapchain.hpp"
+#elif defined( APOLLO_PLATFORM_NX )
+  #include "Render/Nvn/NvnContext.hpp"
+  #include "Render/Nvn/NvnPresenter.hpp"
 #endif
 
 namespace apollo
@@ -51,12 +57,19 @@ namespace apollo
 
     State m_State{ State::Created };
 
+#if !defined( APOLLO_BUILD_RELEASE )
+    debug::DebugUi m_DebugUi{};
+#endif
+
 #if defined( APOLLO_PLATFORM_WINDOWS )
     platform::WindowsWindow         m_Window{};
     render::vulkan::VulkanContext   m_Vulkan{};
     render::vulkan::VulkanSwapchain m_Swapchain{};
     render::vulkan::VulkanPresenter m_Presenter{};
     bool                            m_PresentationReady{};
+#elif defined( APOLLO_PLATFORM_NX )
+    render::nvn::NvnContext   m_Nvn{};
+    render::nvn::NvnPresenter m_NvnPresenter{};
 #endif
   };
 } // namespace apollo

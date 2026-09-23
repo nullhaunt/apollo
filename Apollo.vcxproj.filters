@@ -17,11 +17,33 @@
       <UniqueIdentifier>{F1DF9757-14C3-43FA-8525-6665FEDE7BA5}</UniqueIdentifier>
       <Extensions>props</Extensions>
     </Filter>
+    <Filter Include="Third Party">
+      <UniqueIdentifier>{D8B2D31B-86E4-4388-A329-366837791617}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Shaders\IndexedQuad.hlsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Shaders\DebugUi.hlsl"><Filter>Resource Files</Filter></None>
+    <None Include="Tools\BuildDebugUiShader.ps1"><Filter>for Build</Filter></None>
+    <None Include="External\imgui\LICENSE.txt"><Filter>Third Party</Filter></None>
+    <None Include="External\imgui\APOLLO-PROVENANCE.md"><Filter>Third Party</Filter></None>
+    <None Include="Tools\BuildIndexedQuadShader.ps1">
+      <Filter>for Build</Filter>
+    </None>
     <ClCompile Include="Source\Application\Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Debug\DebugUi.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnDebugUi.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="External\imgui\imgui.cpp"><Filter>Third Party</Filter></ClCompile>
+    <ClCompile Include="External\imgui\imgui_draw.cpp"><Filter>Third Party</Filter></ClCompile>
+    <ClCompile Include="External\imgui\imgui_tables.cpp"><Filter>Third Party</Filter></ClCompile>
+    <ClCompile Include="External\imgui\imgui_widgets.cpp"><Filter>Third Party</Filter></ClCompile>
+    <ClCompile Include="External\imgui\imgui_demo.cpp"><Filter>Third Party</Filter></ClCompile>
+    <ClCompile Include="External\imgui\backends\imgui_impl_win32.cpp"><Filter>Third Party</Filter></ClCompile>
+    <ClCompile Include="External\imgui\backends\imgui_impl_vulkan.cpp"><Filter>Third Party</Filter></ClCompile>
     <ClCompile Include="Source\Core\CoreContracts.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -32,6 +54,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\Render\RenderContracts.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnIndexedQuad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnPresenter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\Platform\Windows\WindowsWindow.cpp">
@@ -54,6 +85,13 @@
     <ClInclude Include="Source\Application\Application.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Debug\DebugUi.hpp"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Source\Render\Nvn\NvnDebugUi.hpp"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="External\imgui\imgui.h"><Filter>Third Party</Filter></ClInclude>
+    <ClInclude Include="External\imgui\imgui_internal.h"><Filter>Third Party</Filter></ClInclude>
+    <ClInclude Include="External\imgui\imconfig.h"><Filter>Third Party</Filter></ClInclude>
+    <ClInclude Include="External\imgui\backends\imgui_impl_win32.h"><Filter>Third Party</Filter></ClInclude>
+    <ClInclude Include="External\imgui\backends\imgui_impl_vulkan.h"><Filter>Third Party</Filter></ClInclude>
     <ClInclude Include="Source\Core\BuildConfiguration.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -76,6 +114,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Render\RenderTypes.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Render\IndexedQuad.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Render\IndexedQuadTexture.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Render\Nvn\NvnContext.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Render\Nvn\NvnIndexedQuad.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Render\Nvn\NvnPresenter.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Render\Vulkan\VulkanBootstrap.hpp">

@@ -1,5 +1,11 @@
 #include "WindowsWindow.hpp"
 
+#if !defined( APOLLO_BUILD_RELEASE )
+  #include <imgui.h>
+  #include <backends/imgui_impl_win32.h>
+  extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND, UINT, WPARAM, LPARAM );
+#endif
+
 #include <limits>
 
 namespace
@@ -195,6 +201,13 @@ namespace apollo::platform
 
   LRESULT WindowsWindow::HandleMessage( HWND handle, UINT message, WPARAM wparam, LPARAM lparam ) noexcept
   {
+#if !defined( APOLLO_BUILD_RELEASE )
+    if ( ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().BackendPlatformUserData != nullptr &&
+         ImGui_ImplWin32_WndProcHandler( handle, message, wparam, lparam ) )
+    {
+      return 1;
+    }
+#endif
     switch ( message )
     {
       case WM_SIZE:

@@ -33,11 +33,45 @@
     <CustomBuild Include="NintendoSDK_Application.bmp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Shaders\IndexedQuad.hlsl" />
+    <None Include="Shaders\DebugUi.hlsl" />
+    <None Include="Tools\BuildIndexedQuadShader.ps1" />
+    <None Include="Tools\BuildDebugUiShader.ps1" />
+    <None Include="External\imgui\LICENSE.txt" />
+    <None Include="External\imgui\APOLLO-PROVENANCE.md" />
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="Source\Application\Application.cpp" />
+    <ClCompile Include="Source\Debug\DebugUi.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="External\imgui\imgui.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="External\imgui\imgui_draw.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="External\imgui\imgui_tables.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="External\imgui\imgui_widgets.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="External\imgui\imgui_demo.cpp"><ExcludedFromBuild Condition="'$(Configuration)'=='Release'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="External\imgui\backends\imgui_impl_win32.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='NX64' Or '$(Configuration)'=='Release'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="External\imgui\backends\imgui_impl_vulkan.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='NX64' Or '$(Configuration)'=='Release'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Platform\Diagnostics.cpp" />
     <ClCompile Include="Source\Render\RenderContracts.cpp" />
+    <ClCompile Include="Source\Render\Nvn\NvnContext.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnIndexedQuad.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnDebugUi.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='x64' Or '$(Configuration)'=='Release'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Source\Render\Nvn\NvnPresenter.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Platform\Windows\WindowsWindow.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -56,6 +90,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Application\Application.hpp" />
+    <ClInclude Include="Source\Debug\DebugUi.hpp" />
+    <ClInclude Include="External\imgui\imgui.h" />
+    <ClInclude Include="External\imgui\imgui_internal.h" />
+    <ClInclude Include="External\imgui\imconfig.h" />
+    <ClInclude Include="External\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="External\imgui\backends\imgui_impl_vulkan.h" />
     <ClInclude Include="Source\Core\BuildConfiguration.hpp" />
     <ClInclude Include="Source\Core\Identifier.hpp" />
     <ClInclude Include="Source\Core\Types.hpp" />
@@ -64,6 +104,12 @@
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />
     <ClInclude Include="Source\Render\RenderDevice.hpp" />
     <ClInclude Include="Source\Render\RenderTypes.hpp" />
+    <ClInclude Include="Source\Render\IndexedQuad.hpp" />
+    <ClInclude Include="Source\Render\IndexedQuadTexture.hpp" />
+    <ClInclude Include="Source\Render\Nvn\NvnContext.hpp" />
+    <ClInclude Include="Source\Render\Nvn\NvnIndexedQuad.hpp" />
+    <ClInclude Include="Source\Render\Nvn\NvnDebugUi.hpp" />
+    <ClInclude Include="Source\Render\Nvn\NvnPresenter.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanBootstrap.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanContext.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanPresenter.hpp" />
@@ -256,7 +302,7 @@
       <Path>$(IntDir)$(TargetName).log</Path>
     </BuildLog>
     <ClCompile>
-      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_DEBUG=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_DEBUG=1;IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -268,7 +314,7 @@
       <Path>$(IntDir)$(TargetName).log</Path>
     </BuildLog>
     <ClCompile>
-      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_DEVELOP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_DEVELOP=1;IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -280,7 +326,7 @@
       <Path>$(IntDir)$(TargetName).log</Path>
     </BuildLog>
     <ClCompile>
-      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_RELEASE=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APOLLO_PLATFORM_NX=1;APOLLO_BUILD_RELEASE=1;IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)Source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -288,6 +334,23 @@
     <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for x64 builds." />
     <Error Condition="!Exists('$(VULKAN_SDK)\Include\vulkan\vulkan.hpp')" Text="Vulkan-Hpp headers were not found under VULKAN_SDK." />
     <Error Condition="!Exists('$(VULKAN_SDK)\Lib\vulkan-1.lib')" Text="Vulkan SDK import library was not found under VULKAN_SDK." />
+  </Target>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)External\imgui;$(IntDir)Generated;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Target Name="BuildIndexedQuadShaders" BeforeTargets="ClCompile"
+          Inputs="$(ProjectDir)Shaders\IndexedQuad.hlsl;$(ProjectDir)Tools\BuildIndexedQuadShader.ps1"
+          Outputs="$(IntDir)Generated\IndexedQuadShader.hpp">
+    <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for shader builds." />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Tools\BuildIndexedQuadShader.ps1&quot; -Source &quot;$(ProjectDir)Shaders\IndexedQuad.hlsl&quot; -OutputDirectory &quot;$(IntDir)Generated&quot; -Platform &quot;$(Platform)&quot; -VulkanSdk &quot;$(VULKAN_SDK)&quot;" />
+  </Target>
+  <Target Name="BuildDebugUiShaders" BeforeTargets="ClCompile" Condition="'$(Platform)'=='NX64' And '$(Configuration)'!='Release'"
+          Inputs="$(ProjectDir)Shaders\DebugUi.hlsl;$(ProjectDir)Tools\BuildDebugUiShader.ps1"
+          Outputs="$(IntDir)Generated\DebugUiShader.hpp">
+    <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for debug UI shader builds." />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Tools\BuildDebugUiShader.ps1&quot; -Source &quot;$(ProjectDir)Shaders\DebugUi.hlsl&quot; -OutputDirectory &quot;$(IntDir)Generated&quot; -VulkanSdk &quot;$(VULKAN_SDK)&quot;" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

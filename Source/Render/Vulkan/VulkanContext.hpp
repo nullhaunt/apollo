@@ -29,6 +29,7 @@ namespace apollo::render::vulkan
     [[nodiscard]] bool         IsValidationEnabled() const noexcept;
 
     [[nodiscard]] vk::PhysicalDevice GetPhysicalDevice() const noexcept;
+    [[nodiscard]] vk::Instance       GetInstance() const noexcept;
     [[nodiscard]] vk::Device         GetDevice() const noexcept;
     [[nodiscard]] vk::SurfaceKHR     GetSurface() const noexcept;
     [[nodiscard]] vk::Queue          GetGraphicsQueue() const noexcept;

@@ -26,13 +26,18 @@ namespace apollo::render::vulkan
     VulkanPresenter & operator=( VulkanPresenter && )      = delete;
 
     [[nodiscard]] bool   Initialize( const VulkanContext & context, const VulkanSwapchain & swapchain ) noexcept;
-    [[nodiscard]] Result PresentClear( ClearColor color ) noexcept;
+    [[nodiscard]] Result PresentFrame( ClearColor color ) noexcept;
     void                 Shutdown() noexcept;
 
   private:
     [[nodiscard]] bool   CreateCommands() noexcept;
     [[nodiscard]] bool   CreateSynchronization() noexcept;
-    [[nodiscard]] bool   RecordClear( u32 imageIndex, ClearColor color ) noexcept;
+    [[nodiscard]] bool   CreateGeometry() noexcept;
+    [[nodiscard]] bool   CreateTexture() noexcept;
+    [[nodiscard]] bool   CreateHostBuffer( vk::DeviceSize size, vk::BufferUsageFlags usage, const void * data,
+                                           vk::Buffer & buffer, vk::DeviceMemory & memory ) noexcept;
+    [[nodiscard]] bool   CreatePipeline() noexcept;
+    [[nodiscard]] bool   RecordFrame( u32 imageIndex, ClearColor color ) noexcept;
     [[nodiscard]] Result AcquireImage( u32 & imageIndex, bool & suboptimal ) noexcept;
     [[nodiscard]] Result SubmitFrame( u32 imageIndex ) noexcept;
     [[nodiscard]] Result PresentImage( u32 imageIndex ) noexcept;
@@ -46,6 +51,24 @@ namespace apollo::render::vulkan
     std::unique_ptr<vk::Semaphore[]> m_RenderFinished{};
     u32                              m_RenderFinishedCount{};
     vk::Fence                        m_FrameFence{};
+    vk::Buffer                       m_VertexBuffer{};
+    vk::DeviceMemory                 m_VertexMemory{};
+    vk::Buffer                       m_IndexBuffer{};
+    vk::DeviceMemory                 m_IndexMemory{};
+    vk::Buffer                       m_TextureStagingBuffer{};
+    vk::DeviceMemory                 m_TextureStagingMemory{};
+    vk::Image                        m_TextureImage{};
+    vk::DeviceMemory                 m_TextureMemory{};
+    vk::ImageView                    m_TextureView{};
+    vk::Sampler                      m_TextureSampler{};
+    vk::DescriptorSetLayout          m_TextureSetLayout{};
+    vk::DescriptorPool               m_DescriptorPool{};
+    vk::DescriptorSet                m_TextureSet{};
+    vk::ShaderModule                 m_VertexShader{};
+    vk::ShaderModule                 m_FragmentShader{};
+    vk::PipelineLayout               m_PipelineLayout{};
+    vk::Pipeline                     m_Pipeline{};
+    bool                             m_ImGuiReady{};
     u64                              m_PresentedFrames{};
   };
 } // namespace apollo::render::vulkan
