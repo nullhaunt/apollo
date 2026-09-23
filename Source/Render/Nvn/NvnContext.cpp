@@ -4,6 +4,7 @@
 
 #include <nv/nv_MemoryManagement.h>
 #include <nvn/nvn_CppFuncPtrImpl.h>
+#include <nvn/nvn_FuncPtr.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -89,7 +90,12 @@ namespace apollo::render::nvn
       return false;
     }
 
+    const auto getCProcAddress = reinterpret_cast<PFNNVNDEVICEGETPROCADDRESSPROC>(
+      nvnBootstrapLoader( "nvnDeviceGetProcAddress" ) );
+    static_assert( sizeof( ::nvn::Device ) == sizeof( NVNdevice ) );
+    static_assert( alignof( ::nvn::Device ) == alignof( NVNdevice ) );
     nvnLoadCPPProcs( nullptr, getProcAddress );
+    nvnLoadCProcs( nullptr, getCProcAddress );
 
     ::nvn::DeviceBuilder deviceBuilder{};
     deviceBuilder.SetDefaults();
@@ -101,6 +107,13 @@ namespace apollo::render::nvn
     }
     m_DeviceReady = true;
     nvnLoadCPPProcs( &m_Device, getProcAddress );
+    nvnLoadCProcs( reinterpret_cast<NVNdevice *>( &m_Device ), getCProcAddress );
+    if ( pfnc_nvnDeviceGetInteger == nullptr )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "NVN C device feature entry point is unavailable." );
+      Shutdown();
+      return false;
+    }
     m_Device.SetWindowOriginMode( ::nvn::WindowOriginMode::UPPER_LEFT );
 
     int majorVersion{};
