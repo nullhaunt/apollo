@@ -2,6 +2,7 @@
 
 #include "Render/RenderTypes.hpp"
 #include "Mii/MiiCatalog.hpp"
+#include "Mii/MiiResources.hpp"
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Platform/Windows/WindowsWindow.hpp"
@@ -25,7 +26,8 @@ namespace apollo::debug
 #else
     [[nodiscard]] bool Initialize() noexcept;
 #endif
-    void BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog ) noexcept;
+    void BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog,
+                     const mii::ResourceFiles & miiResources ) noexcept;
     void Shutdown() noexcept;
 
   private:

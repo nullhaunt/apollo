@@ -85,7 +85,8 @@ namespace apollo::debug
     return true;
   }
 
-  void DebugUi::BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog ) noexcept
+  void DebugUi::BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog,
+                            const mii::ResourceFiles & miiResources ) noexcept
   {
     if ( !m_Ready ) return;
 #if defined( APOLLO_PLATFORM_WINDOWS )
@@ -173,6 +174,15 @@ namespace apollo::debug
 #else
       ImGui::TextUnformatted( "Console database and Nintendo defaults." );
 #endif
+      if ( miiResources.IsReady() )
+      {
+        constexpr double MiB = 1024.0 * 1024.0;
+        ImGui::Text( "SDK inputs: shape %.2f MiB, texture %.2f MiB, Resource object %u B",
+          static_cast<double>( miiResources.ShapeSize() ) / MiB,
+          static_cast<double>( miiResources.TextureSize() ) / MiB,
+          static_cast<unsigned int>( miiResources.ResourceObjectSize() ) );
+      }
+      else ImGui::TextUnformatted( "SDK Mii resources unavailable; see diagnostics." );
       if ( !miiCatalog.IsAvailable() )
         ImGui::TextUnformatted( "Database unavailable; see diagnostics." );
       else

@@ -2,6 +2,7 @@
 
 #include "Platform/Platform.hpp"
 #include "Mii/MiiCatalog.hpp"
+#include "Mii/MiiResources.hpp"
 #if !defined( APOLLO_BUILD_RELEASE )
   #include "Debug/DebugUi.hpp"
 #endif
@@ -58,6 +59,7 @@ namespace apollo
 
     State m_State{ State::Created };
     mii::Catalog m_MiiCatalog{};
+    mii::ResourceFiles m_MiiResources{};
 
 #if !defined( APOLLO_BUILD_RELEASE )
     debug::DebugUi m_DebugUi{};
