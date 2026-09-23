@@ -166,7 +166,7 @@ namespace apollo
       }
 
 #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame( { extent.width, extent.height } );
+      m_DebugUi.BeginFrame( { extent.width, extent.height }, m_MiiCatalog );
 #endif
       const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
       if ( frame == render::Result::SurfaceOutOfDate )
@@ -213,7 +213,7 @@ namespace apollo
         return ApplicationExitStatus::PlatformFailure;
       }
 #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame( extent );
+      m_DebugUi.BeginFrame( extent, m_MiiCatalog );
 #endif
       if ( m_NvnPresenter.PresentFrame() != render::Result::Success )
       {
@@ -237,6 +237,8 @@ namespace apollo
     diagnostics::Write( diagnostics::Level::Information, "Starting Apollo." );
     diagnostics::Write( diagnostics::Level::Information, "Platform: ", platform::CurrentTargetName );
     diagnostics::Write( diagnostics::Level::Information, "Configuration: ", build::CurrentConfigurationName );
+    // Catalog failure is reported, but does not prevent the renderer checkpoint from running.
+    (void)m_MiiCatalog.Load();
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
     if ( !ConfigurePcRenderBudget() ) return false;

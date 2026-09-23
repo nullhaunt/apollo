@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Render/RenderTypes.hpp"
+#include "Mii/MiiCatalog.hpp"
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include "Platform/Windows/WindowsWindow.hpp"
@@ -24,7 +25,7 @@ namespace apollo::debug
 #else
     [[nodiscard]] bool Initialize() noexcept;
 #endif
-    void BeginFrame( render::Extent2D extent ) noexcept;
+    void BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog ) noexcept;
     void Shutdown() noexcept;
 
   private:
@@ -36,5 +37,6 @@ namespace apollo::debug
     bool                                  m_Ready{};
     bool                                  m_ShowDemo{};
     bool                                  m_FirstFrameReported{};
+    int                                   m_SelectedMii{};
   };
 } // namespace apollo::debug

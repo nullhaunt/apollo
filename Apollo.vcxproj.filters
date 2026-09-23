@@ -47,6 +47,7 @@
     <ClCompile Include="Source\Core\CoreContracts.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Mii\MiiCatalog.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Source\Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -104,6 +105,7 @@
     <ClInclude Include="Source\Core\Types.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Mii\MiiCatalog.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Platform\Diagnostics.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

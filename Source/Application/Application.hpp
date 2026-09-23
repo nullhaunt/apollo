@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Platform/Platform.hpp"
+#include "Mii/MiiCatalog.hpp"
 #if !defined( APOLLO_BUILD_RELEASE )
   #include "Debug/DebugUi.hpp"
 #endif
@@ -56,6 +57,7 @@ namespace apollo
 #endif
 
     State m_State{ State::Created };
+    mii::Catalog m_MiiCatalog{};
 
 #if !defined( APOLLO_BUILD_RELEASE )
     debug::DebugUi m_DebugUi{};

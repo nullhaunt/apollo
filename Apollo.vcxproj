@@ -57,6 +57,7 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64' Or '$(Configuration)'=='Release'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
+    <ClCompile Include="Source\Mii\MiiCatalog.cpp" />
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Platform\Diagnostics.cpp" />
     <ClCompile Include="Source\Render\RenderContracts.cpp" />
@@ -100,6 +101,7 @@
     <ClInclude Include="Source\Core\BuildConfiguration.hpp" />
     <ClInclude Include="Source\Core\Identifier.hpp" />
     <ClInclude Include="Source\Core\Types.hpp" />
+    <ClInclude Include="Source\Mii\MiiCatalog.hpp" />
     <ClInclude Include="Source\Platform\Diagnostics.hpp" />
     <ClInclude Include="Source\Platform\Platform.hpp" />
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />

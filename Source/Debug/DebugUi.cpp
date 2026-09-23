@@ -16,6 +16,7 @@
 #endif
 
 #include <algorithm>
+#include <cstdio>
 
 namespace apollo::debug
 {
@@ -84,7 +85,7 @@ namespace apollo::debug
     return true;
   }
 
-  void DebugUi::BeginFrame( render::Extent2D extent ) noexcept
+  void DebugUi::BeginFrame( render::Extent2D extent, const mii::Catalog & miiCatalog ) noexcept
   {
     if ( !m_Ready ) return;
 #if defined( APOLLO_PLATFORM_WINDOWS )
@@ -163,6 +164,46 @@ namespace apollo::debug
       ImGui::Text( "Geometry: %.1f KiB", chargeKiB( render::budget::Resource::Geometry ) );
       ImGui::Text( "Texture: %.1f KiB", chargeKiB( render::budget::Resource::Texture ) );
       ImGui::Text( "Upload: %.1f KiB", chargeKiB( render::budget::Resource::Upload ) );
+      ImGui::TreePop();
+    }
+    if ( ImGui::TreeNode( "Mii catalog" ) )
+    {
+#if defined( APOLLO_PLATFORM_WINDOWS )
+      ImGui::TextUnformatted( "Nintendo defaults in the SDK Generic environment." );
+#else
+      ImGui::TextUnformatted( "Console database and Nintendo defaults." );
+#endif
+      if ( !miiCatalog.IsAvailable() )
+        ImGui::TextUnformatted( "Database unavailable; see diagnostics." );
+      else
+      {
+        ImGui::Text( "%u valid Miis (opaque snapshots in memory)",
+                     static_cast<unsigned int>( miiCatalog.Count() ) );
+        if ( ImGui::BeginChild( "Mii entries", ImVec2( 0, 180 ), ImGuiChildFlags_Borders ) )
+        {
+          for ( size_t i = 0; i < miiCatalog.Count(); ++i )
+          {
+            const mii::Entry * entry = miiCatalog.Get( i );
+            ImGui::PushID( static_cast<int>( i ) );
+            char label[ 72 ]{};
+            std::snprintf( label, sizeof( label ), "#%03u  %s", static_cast<unsigned int>( i + 1 ),
+                           entry->name[ 0 ] ? entry->name.data() : "(Unnamed)" );
+            if ( ImGui::Selectable( label,
+                                    m_SelectedMii == static_cast<int>( i ) ) )
+              m_SelectedMii = static_cast<int>( i );
+            ImGui::PopID();
+          }
+        }
+        ImGui::EndChild();
+        if ( const mii::Entry * selected = miiCatalog.Get( static_cast<size_t>( m_SelectedMii ) ) )
+        {
+          ImGui::Text( "Source: %s | Height: %u | Build: %u | Snapshot: %u bytes",
+                       selected->source == mii::Source::Database ? "Console" : "Default",
+                       static_cast<unsigned int>( selected->height ),
+                       static_cast<unsigned int>( selected->build ),
+                       static_cast<unsigned int>( selected->snapshot.size() ) );
+        }
+      }
       ImGui::TreePop();
     }
 #if defined( APOLLO_PLATFORM_NX )
