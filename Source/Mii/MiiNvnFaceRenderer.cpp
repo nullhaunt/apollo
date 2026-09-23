@@ -6,7 +6,6 @@
 #include <nn/util/util_BinaryFormat.h>
 #include <nvn/nvn_FuncPtr.h>
 
-#include <cstdio>
 #include <cstdlib>
 #include <limits>
 
@@ -48,16 +47,6 @@ namespace apollo::mii
 
       return aligned_alloc( alignment, rounded );
     }
-
-    void * AllocateFs( size_t size ) noexcept
-    {
-      return std::malloc( size );
-    }
-
-    void FreeFs( void * memory, size_t ) noexcept
-    {
-      std::free( memory );
-    }
   } // namespace
 
   NvnFaceRenderer::~NvnFaceRenderer() noexcept
@@ -93,8 +82,6 @@ namespace apollo::mii
 
   bool NvnFaceRenderer::LoadShaderFile() noexcept
   {
-    nn::fs::SetAllocator( AllocateFs, FreeFs );
-
     size_t cacheSize = 0;
     if ( !nn::fs::QueryMountRomCacheSize( &cacheSize ).IsSuccess() )
     {
