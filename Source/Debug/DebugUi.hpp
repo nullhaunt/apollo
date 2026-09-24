@@ -27,15 +27,17 @@ namespace apollo::debug
 #else
     [[nodiscard]] bool Initialize() noexcept;
 #endif
-    void BeginFrame( render::Extent2D           extent,
-                     const mii::Catalog &       miiCatalog,
-                     const mii::ResourceFiles & miiResources,
-                     bool                       nxMiiModelReady,
-                     bool                       nxFaceSourcesReady,
-                     bool                       nxFaceTexturesReady,
-                     bool                       nxHeadRendererReady,
-                     mii::PreviewCamera &       previewCamera ) noexcept;
-    void Shutdown() noexcept;
+    void              BeginFrame( render::Extent2D           extent,
+                                  const mii::Catalog &       miiCatalog,
+                                  const mii::ResourceFiles & miiResources,
+                                  bool                       nxMiiModelReady,
+                                  bool                       nxFaceSourcesReady,
+                                  bool                       nxFaceTexturesReady,
+                                  bool                       nxHeadRendererReady,
+                                  mii::PreviewCamera &       previewCamera ) noexcept;
+    void              Shutdown() noexcept;
+    [[nodiscard]] int ConsumeMiiSelection() noexcept;
+    void              SetSelectedMii( int index ) noexcept;
 
   private:
     void DrawDiagnosticsWindow( render::Extent2D extent ) noexcept;
@@ -59,5 +61,6 @@ namespace apollo::debug
     bool                                  m_FirstFrameReported{};
     bool                                  m_ResetLayout{};
     int                                   m_SelectedMii{};
+    int                                   m_PendingMiiSelection{ -1 };
   };
 } // namespace apollo::debug

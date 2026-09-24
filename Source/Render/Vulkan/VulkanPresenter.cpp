@@ -93,6 +93,7 @@ namespace apollo::render::vulkan
     {
       return false;
     }
+    m_MiiHead.Shutdown();
     return m_MiiHead.Initialize( *m_Context, m_Swapchain->GetRenderPass(), m_CommandBuffer, package );
   }
 

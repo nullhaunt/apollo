@@ -21,6 +21,7 @@ namespace apollo::mii
     std::array<std::uint8_t, CharInfoBytes> snapshot{};
     std::array<char, 48>                    name{};
     Source                                  source{};
+    std::uint8_t                            defaultIndex{ 0xff };
     std::uint8_t                            height{};
     std::uint8_t                            build{};
   };

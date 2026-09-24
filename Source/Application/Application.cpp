@@ -14,6 +14,7 @@
 #endif
 
 #include <cstdio>
+#include <utility>
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
   #include <charconv>
@@ -197,6 +198,7 @@ namespace apollo
                             false,
                             m_Presenter.IsMiiHeadReady(),
                             m_MiiPreviewCamera );
+      ApplyMiiSelection();
   #endif
       const render::Result frame = m_Presenter.PresentFrame( mii::PreviewScene::Background, m_MiiPreviewCamera );
       if ( frame == render::Result::SurfaceOutOfDate )
@@ -255,6 +257,7 @@ namespace apollo
                             m_MiiModel.AreFaceTexturesReady(),
                             m_MiiModel.IsHeadRendererReady(),
                             m_MiiPreviewCamera );
+      ApplyMiiSelection();
   #endif
       if ( m_NvnPresenter.PresentFrame( m_MiiModel, m_MiiPreviewCamera ) != render::Result::Success )
       {
@@ -358,23 +361,87 @@ namespace apollo
     // Resource loading is a separate feasibility checkpoint; rendering can run
     // and report its failure without these optional Mii inputs.
     ( void )m_MiiResources.Load();
-#if defined( APOLLO_PLATFORM_WINDOWS )
-    if ( m_MiiPackage.Load( m_MiiResources ) )
+    if ( m_MiiCatalog.Count() != 0 && m_MiiResources.IsReady() )
     {
-      ( void )m_Presenter.LoadMiiHead( m_MiiPackage );
+      ( void )SelectMii( 0 );
     }
-#endif
-#if defined( APOLLO_PLATFORM_NX )
-    if ( const mii::Entry * first = m_MiiCatalog.Get( 0 ); first != nullptr && m_MiiResources.IsReady() )
-    {
-      ( void )m_MiiModel.Initialize( m_Nvn, m_MiiResources, *first );
-    }
-#endif
 
     m_State = State::Initialized;
     diagnostics::Write( diagnostics::Level::Information, "Initialization complete." );
     return true;
   }
+
+  bool Application::SelectMii( int index ) noexcept
+  {
+    if ( index < 0 || index == m_RenderedMiiIndex || !m_MiiResources.IsReady() )
+    {
+      return index == m_RenderedMiiIndex;
+    }
+
+    const mii::Entry * entry = m_MiiCatalog.Get( static_cast<size_t>( index ) );
+    if ( entry == nullptr )
+    {
+      return false;
+    }
+
+#if defined( APOLLO_PLATFORM_WINDOWS )
+    if ( entry->source != mii::Source::Default )
+    {
+      return false;
+    }
+
+    mii::PreviewPackage nextPackage{};
+    if ( !nextPackage.Load( m_MiiResources, entry->defaultIndex ) )
+    {
+      return false;
+    }
+
+    if ( !m_Presenter.LoadMiiHead( nextPackage ) )
+    {
+      if ( m_MiiPackage.IsReady() && !m_Presenter.LoadMiiHead( m_MiiPackage ) )
+      {
+        m_RenderedMiiIndex = -1;
+      }
+      return false;
+    }
+
+    m_MiiPackage = std::move( nextPackage );
+#elif defined( APOLLO_PLATFORM_NX )
+    m_Nvn.GetQueue()->Finish();
+    m_MiiModel.Shutdown();
+    if ( !m_MiiModel.Initialize( m_Nvn, m_MiiResources, *entry ) )
+    {
+      const mii::Entry * previous =
+        m_RenderedMiiIndex >= 0 ? m_MiiCatalog.Get( static_cast<size_t>( m_RenderedMiiIndex ) ) : nullptr;
+      if ( previous == nullptr || !m_MiiModel.Initialize( m_Nvn, m_MiiResources, *previous ) )
+      {
+        m_RenderedMiiIndex = -1;
+      }
+      return false;
+    }
+#endif
+
+    m_RenderedMiiIndex = index;
+    char message[ 96 ]{};
+    std::snprintf(
+      message, sizeof( message ), "Mii preview selected catalog #%u.", static_cast<unsigned int>( index + 1 ) );
+    diagnostics::Write( diagnostics::Level::Information, message );
+    return true;
+  }
+
+#if !defined( APOLLO_BUILD_RELEASE )
+  void Application::ApplyMiiSelection() noexcept
+  {
+    const int selected = m_DebugUi.ConsumeMiiSelection();
+    if ( selected < 0 || SelectMii( selected ) )
+    {
+      return;
+    }
+
+    diagnostics::Write( diagnostics::Level::Warning, "Mii preview selection failed; keeping the previous head." );
+    m_DebugUi.SetSelectedMii( m_RenderedMiiIndex >= 0 ? m_RenderedMiiIndex : 0 );
+  }
+#endif
 
   void Application::Shutdown() noexcept
   {

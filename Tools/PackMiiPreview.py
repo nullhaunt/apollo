@@ -13,7 +13,7 @@ from pathlib import Path
 GEOMETRY_HEADER = struct.Struct("<4I")
 PART_HEADER = struct.Struct("<7I9f")
 TEXTURE_HEADER = struct.Struct("<4I")
-PACKAGE_HEADER = struct.Struct("<4s4I88s32s32s")
+PACKAGE_HEADER = struct.Struct("<4s5I88s32s32s")
 PART_TEXTURE = {1: 0, 4: 1, 6: 2, 7: 3, 8: 4}
 MAX_FILE_BYTES = 32 * 1024 * 1024
 
@@ -117,7 +117,7 @@ def read_textures(directory: Path, required: set[int]) -> tuple[int, bytes]:
     return len(required), bytes(payload)
 
 
-def build_package(directory: Path, sdk_root: Path) -> bytes:
+def build_package(directory: Path, sdk_root: Path, default_index: int) -> bytes:
     char_info = read_capped(directory / "MiiCharInfoProbe.bin")
     if len(char_info) != 88:
         raise ValueError("CharInfo snapshot must be 88 bytes")
@@ -136,7 +136,7 @@ def build_package(directory: Path, sdk_root: Path) -> bytes:
         raise ValueError("preview package exceeds 32 MiB")
 
     header = PACKAGE_HEADER.pack(
-        b"APMP", 1, total_bytes, part_count, texture_count,
+        b"APMP", 2, total_bytes, part_count, texture_count, default_index,
         char_info, source_hash, hashlib.sha256(body).digest()
     )
     return header + body
@@ -147,12 +147,13 @@ def main() -> None:
     parser.add_argument("--input-dir", type=Path, default=Path("Build/MiiGeometryProbe"))
     parser.add_argument("--sdk-root", type=Path, default=os.environ.get("NINTENDO_SDK_ROOT"))
     parser.add_argument("--output", type=Path, default=Path("Build/MiiGeometryProbe/Default0.apmp"))
+    parser.add_argument("--default-index", type=int, required=True, choices=range(6))
     args = parser.parse_args()
 
     if args.sdk_root is None:
         parser.error("pass --sdk-root or set NINTENDO_SDK_ROOT")
 
-    package = build_package(args.input_dir, args.sdk_root)
+    package = build_package(args.input_dir, args.sdk_root, args.default_index)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
     try:

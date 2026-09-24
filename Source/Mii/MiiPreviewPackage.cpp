@@ -29,6 +29,7 @@ namespace apollo::mii
       std::uint32_t totalBytes;
       std::uint32_t partCount;
       std::uint32_t textureCount;
+      std::uint32_t defaultIndex;
       std::uint8_t  charInfo[ 88 ];
       std::uint8_t  resourceHash[ 32 ];
       std::uint8_t  bodyHash[ 32 ];
@@ -54,7 +55,7 @@ namespace apollo::mii
       float         colors[ 3 ][ 3 ];
     };
 
-    static_assert( sizeof( PackageHeader ) == 172 );
+    static_assert( sizeof( PackageHeader ) == 176 );
     static_assert( sizeof( TextureHeader ) == 16 );
     static_assert( sizeof( PartHeader ) == 64 );
 
@@ -145,7 +146,7 @@ namespace apollo::mii
       }
     }
 
-    [[nodiscard]] std::FILE * OpenDefaultPackage() noexcept
+    [[nodiscard]] std::FILE * OpenDefaultPackage( std::uint8_t defaultIndex ) noexcept
     {
       wchar_t     module[ MAX_PATH ]{};
       const DWORD length = GetModuleFileNameW( nullptr, module, MAX_PATH );
@@ -163,11 +164,14 @@ namespace apollo::mii
 
       wchar_t     path[ MAX_PATH ]{};
       std::FILE * file = nullptr;
-      if ( swprintf_s( path, L"%s\\Mii\\Default0.apmp", module ) > 0 )
+      if ( swprintf_s( path, L"%s\\Mii\\Default%u.apmp", module, static_cast<unsigned int>( defaultIndex ) ) > 0 )
       {
         ( void )_wfopen_s( &file, path, L"rb" );
       }
-      if ( file == nullptr && swprintf_s( path, L"%s\\..\\..\\MiiGeometryProbe\\Default0.apmp", module ) > 0 )
+      if ( file == nullptr && swprintf_s( path,
+                                          L"%s\\..\\..\\MiiGeometryProbe\\Default%u.apmp",
+                                          module,
+                                          static_cast<unsigned int>( defaultIndex ) ) > 0 )
       {
         ( void )_wfopen_s( &file, path, L"rb" );
       }
@@ -175,15 +179,15 @@ namespace apollo::mii
     }
   } // namespace
 
-  bool PreviewPackage::Load( const ResourceFiles & resources ) noexcept
+  bool PreviewPackage::Load( const ResourceFiles & resources, std::uint8_t defaultIndex ) noexcept
   {
     Clear();
-    if ( !resources.IsReady() )
+    if ( !resources.IsReady() || defaultIndex >= nn::mii::DefaultMiiCount )
     {
       return false;
     }
 
-    std::FILE * file = OpenDefaultPackage();
+    std::FILE * file = OpenDefaultPackage( defaultIndex );
     if ( file == nullptr )
     {
       diagnostics::Write( diagnostics::Level::Warning, "Mii preview package absent; run Tools/CookMiiPreview.ps1." );
@@ -201,7 +205,7 @@ namespace apollo::mii
         if ( m_Data &&
              std::fread( m_Data.get(), 1, static_cast<size_t>( length ), file ) == static_cast<size_t>( length ) )
         {
-          valid = Parse( resources, static_cast<size_t>( length ) );
+          valid = Parse( resources, static_cast<size_t>( length ), defaultIndex );
         }
       }
     }
@@ -224,12 +228,13 @@ namespace apollo::mii
     return true;
   }
 
-  bool PreviewPackage::Parse( const ResourceFiles & resources, size_t fileBytes ) noexcept
+  bool PreviewPackage::Parse( const ResourceFiles & resources, size_t fileBytes, std::uint8_t defaultIndex ) noexcept
   {
     PackageHeader header{};
     std::memcpy( &header, m_Data.get(), sizeof( header ) );
-    if ( std::memcmp( header.magic, "APMP", 4 ) != 0 || header.version != 1 || header.totalBytes != fileBytes ||
-         header.partCount == 0 || header.partCount > 9 || header.textureCount == 0 || header.textureCount > 5 )
+    if ( std::memcmp( header.magic, "APMP", 4 ) != 0 || header.version != 2 || header.totalBytes != fileBytes ||
+         header.defaultIndex != defaultIndex || header.partCount == 0 || header.partCount > 9 ||
+         header.textureCount == 0 || header.textureCount > 5 )
     {
       return false;
     }

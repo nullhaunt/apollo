@@ -37,7 +37,7 @@ namespace apollo::mii
       const std::uint8_t * indices{};
     };
 
-    [[nodiscard]] bool Load( const ResourceFiles & resources ) noexcept;
+    [[nodiscard]] bool Load( const ResourceFiles & resources, std::uint8_t defaultIndex ) noexcept;
     void               Clear() noexcept;
 
     [[nodiscard]] bool            IsReady() const noexcept;
@@ -47,7 +47,7 @@ namespace apollo::mii
     [[nodiscard]] const Part *    GetPart( std::uint32_t index ) const noexcept;
 
   private:
-    [[nodiscard]] bool Parse( const ResourceFiles & resources, size_t fileBytes ) noexcept;
+    [[nodiscard]] bool Parse( const ResourceFiles & resources, size_t fileBytes, std::uint8_t defaultIndex ) noexcept;
 
     std::unique_ptr<std::uint8_t[]> m_Data{};
     Texture                         m_Textures[ 5 ]{};

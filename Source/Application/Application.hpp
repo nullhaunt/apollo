@@ -55,7 +55,11 @@ namespace apollo
     };
 
     [[nodiscard]] bool Initialize() noexcept;
-    void               Shutdown() noexcept;
+    [[nodiscard]] bool SelectMii( int index ) noexcept;
+#if !defined( APOLLO_BUILD_RELEASE )
+    void ApplyMiiSelection() noexcept;
+#endif
+    void Shutdown() noexcept;
 #if defined( APOLLO_PLATFORM_WINDOWS )
     [[nodiscard]] render::Result RecreatePresentation( platform::ClientExtent extent ) noexcept;
 #endif
@@ -64,6 +68,7 @@ namespace apollo
     mii::Catalog       m_MiiCatalog{};
     mii::ResourceFiles m_MiiResources{};
     mii::PreviewCamera m_MiiPreviewCamera{};
+    int                m_RenderedMiiIndex{ -1 };
 
 #if !defined( APOLLO_BUILD_RELEASE )
     debug::DebugUi m_DebugUi{};

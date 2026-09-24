@@ -288,19 +288,11 @@ namespace apollo::debug
     ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready" : "unavailable" );
     ImGui::Text( "Mii face textures: %s", nxFaceTexturesReady ? "generated" : "unavailable" );
     ImGui::Text( "Mii head renderer: %s", nxHeadRendererReady ? "ready" : "unavailable" );
-    if ( nxHeadRendererReady )
-    {
-      ImGui::TextWrapped( "Preview uses catalog #001; selection shows details only." );
-    }
 #else
     ( void )nxMiiModelReady;
     ( void )nxFaceSourcesReady;
     ( void )nxFaceTexturesReady;
     ImGui::Text( "Vulkan Mii head: %s", nxHeadRendererReady ? "ready" : "unavailable" );
-    if ( nxHeadRendererReady )
-    {
-      ImGui::TextWrapped( "Preview uses catalog #001; selection shows details only." );
-    }
 #endif
 
     ImGui::Separator();
@@ -354,7 +346,8 @@ namespace apollo::debug
 
         if ( ImGui::Selectable( label, m_SelectedMii == static_cast<int>( i ) ) )
         {
-          m_SelectedMii = static_cast<int>( i );
+          m_SelectedMii         = static_cast<int>( i );
+          m_PendingMiiSelection = m_SelectedMii;
         }
 
         ImGui::PopID();
@@ -369,7 +362,23 @@ namespace apollo::debug
                    static_cast<unsigned int>( selected->height ),
                    static_cast<unsigned int>( selected->build ),
                    static_cast<unsigned int>( selected->snapshot.size() ) );
+      if ( selected->source == mii::Source::Default )
+      {
+        ImGui::Text( "Generic default #%u", static_cast<unsigned int>( selected->defaultIndex ) );
+      }
     }
+  }
+
+  int DebugUi::ConsumeMiiSelection() noexcept
+  {
+    const int selection   = m_PendingMiiSelection;
+    m_PendingMiiSelection = -1;
+    return selection;
+  }
+
+  void DebugUi::SetSelectedMii( int index ) noexcept
+  {
+    m_SelectedMii = index;
   }
 
   void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera, bool headRendererReady ) noexcept

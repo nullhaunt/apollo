@@ -64,9 +64,11 @@ namespace apollo::mii
       return false;
     }
 
-    if ( m_FaceRenderer.Initialize( m_GfxDevice, m_Model, m_Faceline, m_Mask ) )
+    if ( !m_FaceRenderer.Initialize( m_GfxDevice, m_Model, m_Faceline, m_Mask ) ||
+         !m_HeadRenderer.Initialize( m_GfxDevice, *context.GetQueue(), m_Model, m_FaceRenderer ) )
     {
-      ( void )m_HeadRenderer.Initialize( m_GfxDevice, *context.GetQueue(), m_Model, m_FaceRenderer );
+      Shutdown();
+      return false;
     }
 
     return true;

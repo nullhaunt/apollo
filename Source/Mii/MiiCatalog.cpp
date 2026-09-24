@@ -74,43 +74,58 @@ namespace apollo::mii
       return false;
     }
 
-    nn::mii::CharInfoElement elements[ CatalogCapacity ]{};
-    int                      count = 0;
-#if defined( APOLLO_PLATFORM_NX )
-    constexpr int sourceFlags = nn::mii::SourceFlag_All;
-#else
-    // The Generic host environment is a preview source, not the console's database.
-    constexpr int sourceFlags = nn::mii::SourceFlag_Default;
-#endif
-    const bool fetched = database.Get( &count, elements, static_cast<int>( CatalogCapacity ), sourceFlags ).IsSuccess();
-    database.Finalize();
+    const auto append = [ & ]( const nn::mii::CharInfo & info, Source source, std::uint8_t defaultIndex ) noexcept {
+      if ( m_Count == CatalogCapacity )
+      {
+        return;
+      }
 
-    if ( !fetched || count < 0 || count > static_cast<int>( CatalogCapacity ) )
-    {
-      diagnostics::Write( diagnostics::Level::Error, "Mii catalog enumeration failed." );
-      return false;
-    }
-
-    for ( int i = 0; i < count; ++i )
-    {
-      Entry & entry = m_Entries[ m_Count ];
-      std::memcpy( entry.snapshot.data(), &elements[ i ].info, CharInfoBytes );
       nn::mii::CharInfo restored{};
-      std::memcpy( &restored, entry.snapshot.data(), CharInfoBytes );
+      std::memcpy( &restored, &info, CharInfoBytes );
       const nn::mii::CharInfoAccessor accessor( restored );
       if ( !accessor.IsValid() )
       {
-        continue;
+        return;
       }
 
-      ++m_Count;
-      entry.source = elements[ i ].source == nn::mii::Source_Database ? Source::Database : Source::Default;
-      entry.height = static_cast<std::uint8_t>( accessor.GetHeight() );
-      entry.build  = static_cast<std::uint8_t>( accessor.GetBuild() );
+      Entry & entry = m_Entries[ m_Count++ ];
+      std::memcpy( entry.snapshot.data(), &info, CharInfoBytes );
+      entry.source       = source;
+      entry.defaultIndex = defaultIndex;
+      entry.height       = static_cast<std::uint8_t>( accessor.GetHeight() );
+      entry.build        = static_cast<std::uint8_t>( accessor.GetBuild() );
       nn::mii::Nickname nickname{};
       accessor.GetNickname( &nickname, nn::mii::FontRegionFlag_All );
       CopyNickname( entry.name, nickname );
+    };
+
+    // BuildDefault gives the same explicit default index on both platforms.
+    for ( int index = 0; index < nn::mii::DefaultMiiCount; ++index )
+    {
+      nn::mii::CharInfo info{};
+      database.BuildDefault( &info, index );
+      append( info, Source::Default, static_cast<std::uint8_t>( index ) );
     }
+
+#if defined( APOLLO_PLATFORM_NX )
+    nn::mii::CharInfoElement elements[ nn::mii::DatabaseMiiCount ]{};
+    int                      count = 0;
+    const bool               fetched =
+      database.Get( &count, elements, nn::mii::DatabaseMiiCount, nn::mii::SourceFlag_Database ).IsSuccess();
+    if ( !fetched || count < 0 || count > nn::mii::DatabaseMiiCount )
+    {
+      database.Finalize();
+      diagnostics::Write( diagnostics::Level::Error, "Mii catalog enumeration failed." );
+      m_Count = 0;
+      return false;
+    }
+
+    for ( int index = 0; index < count; ++index )
+    {
+      append( elements[ index ].info, Source::Database, 0xff );
+    }
+#endif
+    database.Finalize();
 
     m_Available = true;
     char message[ 96 ]{};

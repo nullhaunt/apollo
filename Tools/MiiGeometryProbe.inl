@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 
 namespace
@@ -34,47 +35,48 @@ namespace
   {
     static_assert( sizeof( nn::mii::CharInfo ) == 88 );
 
+    const char * selected = std::getenv( "APOLLO_MII_DEFAULT_INDEX" );
+    if ( selected == nullptr || selected[ 0 ] == '\0' )
+    {
+      return false;
+    }
+
+    char *     end   = nullptr;
+    const long index = std::strtol( selected, &end, 10 );
+    if ( *end != '\0' || index < 0 || index >= nn::mii::DefaultMiiCount )
+    {
+      return false;
+    }
+
     nn::mii::Database database;
     if ( !database.Initialize().IsSuccess() )
     {
       return false;
     }
 
-    nn::mii::CharInfoElement elements[ 16 ]{};
-    int                      count   = 0;
-    const bool               fetched = database.Get( &count, elements, 16, nn::mii::SourceFlag_Default ).IsSuccess();
+    database.BuildDefault( &g_CharInfo, static_cast<int>( index ) );
     database.Finalize();
 
-    if ( !fetched || count <= 0 || count > 16 )
+    if ( !nn::mii::CharInfoAccessor( g_CharInfo ).IsValid() )
     {
       return false;
     }
 
-    for ( int index = 0; index < count; ++index )
+    std::FILE * file = nullptr;
+    if ( fopen_s( &file, "MiiCharInfoProbe.bin", "wb" ) != 0 || file == nullptr )
     {
-      if ( nn::mii::CharInfoAccessor( elements[ index ].info ).IsValid() )
-      {
-        g_CharInfo = elements[ index ].info;
-
-        std::FILE * file = nullptr;
-        if ( fopen_s( &file, "MiiCharInfoProbe.bin", "wb" ) != 0 || file == nullptr )
-        {
-          return false;
-        }
-
-        const bool saved = std::fwrite( &g_CharInfo, sizeof( g_CharInfo ), 1, file ) == 1;
-        if ( std::fclose( file ) != 0 || !saved )
-        {
-          std::remove( "MiiCharInfoProbe.bin" );
-          return false;
-        }
-
-        std::printf( "Apollo Mii probe selected Generic default %d of %d.\n", index, count );
-        return true;
-      }
+      return false;
     }
 
-    return false;
+    const bool saved = std::fwrite( &g_CharInfo, sizeof( g_CharInfo ), 1, file ) == 1;
+    if ( std::fclose( file ) != 0 || !saved )
+    {
+      std::remove( "MiiCharInfoProbe.bin" );
+      return false;
+    }
+
+    std::printf( "Apollo Mii probe selected Generic default %ld of %d.\n", index, nn::mii::DefaultMiiCount );
+    return true;
   }
 
   bool ApolloWriteBuffer( std::FILE * file, const nn::gfx::Buffer * buffer, size_t size )
