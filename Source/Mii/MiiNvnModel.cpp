@@ -202,6 +202,10 @@ namespace apollo::mii
   bool NvnModel::InitializeFaceSources( const Entry & entry ) noexcept
   {
     constexpr int expressionFlags = nn::mii::ExpressionFlag_Normal;
+    // Apollo's preview samples the generated textures with the opposite V
+    // orientation from the SDK source layout. Apply the SDK's source flip to
+    // both layers so the face and expression stay aligned.
+    constexpr bool verticalFlip = true;
 
     const size_t facelineSize          = nn::mii::Faceline::CalculateMemorySize();
     const size_t facelineAlignment     = nn::mii::Faceline::CalculateMemoryAlignment();
@@ -275,7 +279,7 @@ namespace apollo::mii
                                                              static_cast<nn::mii::TemporaryBuffer *>( temporary ),
                                                              m_Resource,
                                                              charInfo,
-                                                             false );
+                                                             verticalFlip );
     if ( !facelineResult.IsSuccess() )
     {
       std::free( temporary );
@@ -300,7 +304,7 @@ namespace apollo::mii
                                                      m_Resource,
                                                      charInfo,
                                                      expressionFlags,
-                                                     false );
+                                                     verticalFlip );
     std::free( temporary );
 
     if ( !maskResult.IsSuccess() )

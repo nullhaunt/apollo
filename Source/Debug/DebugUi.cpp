@@ -403,9 +403,6 @@ namespace apollo::debug
   {
 #if defined( APOLLO_PLATFORM_NX )
     ImGui::TextUnformatted( "Head preview" );
-#else
-    ImGui::TextUnformatted( "Camera controls" );
-#endif
 
     if ( ImGui::Button( "Front" ) )
     {
@@ -438,6 +435,10 @@ namespace apollo::debug
                         mii::PreviewCamera::MaximumDistance,
                         "%.0f units" );
     previewCamera.Clamp();
+#else
+    ImGui::TextWrapped( "The x64 Mii head preview is not connected yet." );
+    ( void )previewCamera;
+#endif
   }
 
 #if defined( APOLLO_PLATFORM_NX )
