@@ -188,10 +188,16 @@ namespace apollo
       }
 
   #if !defined( APOLLO_BUILD_RELEASE )
-      m_DebugUi.BeginFrame(
-        { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false, false, false, false, m_MiiPreviewCamera );
+      m_DebugUi.BeginFrame( { extent.width, extent.height },
+                            m_MiiCatalog,
+                            m_MiiResources,
+                            false,
+                            false,
+                            false,
+                            m_Presenter.IsMiiHeadReady(),
+                            m_MiiPreviewCamera );
   #endif
-      const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
+      const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f }, m_MiiPreviewCamera );
       if ( frame == render::Result::SurfaceOutOfDate )
       {
         const render::Result recovered = RecreatePresentation( extent );
@@ -351,6 +357,12 @@ namespace apollo
     // Resource loading is a separate feasibility checkpoint; rendering can run
     // and report its failure without these optional Mii inputs.
     ( void )m_MiiResources.Load();
+#if defined( APOLLO_PLATFORM_WINDOWS )
+    if ( m_MiiPackage.Load( m_MiiResources ) )
+    {
+      ( void )m_Presenter.LoadMiiHead( m_MiiPackage );
+    }
+#endif
 #if defined( APOLLO_PLATFORM_NX )
     if ( const mii::Entry * first = m_MiiCatalog.Get( 0 ); first != nullptr && m_MiiResources.IsReady() )
     {
@@ -390,6 +402,9 @@ namespace apollo
     m_Nvn.Shutdown();
 #endif
 
+#if defined( APOLLO_PLATFORM_WINDOWS )
+    m_MiiPackage.Clear();
+#endif
     m_MiiResources.Clear();
     if ( render::budget::GetSnapshot().currentBytes != 0 )
     {
@@ -412,6 +427,10 @@ namespace apollo
       return resized;
     }
     if ( !m_Presenter.Initialize( m_Vulkan, m_Swapchain ) )
+    {
+      return render::Result::Failure;
+    }
+    if ( m_MiiPackage.IsReady() && !m_Presenter.LoadMiiHead( m_MiiPackage ) )
     {
       return render::Result::Failure;
     }

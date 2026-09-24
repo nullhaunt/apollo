@@ -37,9 +37,18 @@ namespace apollo::debug
       const float margin = std::min( { 20.0f, width * 0.25f, height * 0.25f } );
       const float gap    = std::min( 16.0f, height * 0.1f );
 
+#if defined( APOLLO_PLATFORM_WINDOWS )
+      if ( width >= 900.0f )
+      {
+        const float panelWidth = width >= 1100.0f ? 350.0f : 260.0f;
+        return { ImVec2( margin, margin ),
+                 ImVec2( panelWidth, std::min( 360.0f, height - 2.0f * margin ) ),
+                 ImVec2( width - margin - panelWidth, margin ),
+                 ImVec2( panelWidth, std::min( 440.0f, height - 2.0f * margin ) ) };
+      }
+#else
       if ( width >= 1100.0f )
       {
-#if defined( APOLLO_PLATFORM_NX )
         constexpr float panelWidth        = 420.0f;
         const float     diagnosticsHeight = std::min( 200.0f, height * 0.3f );
         const float     miiY              = margin + diagnosticsHeight + gap;
@@ -47,16 +56,8 @@ namespace apollo::debug
                  ImVec2( panelWidth, diagnosticsHeight ),
                  ImVec2( margin, miiY ),
                  ImVec2( panelWidth, std::min( 440.0f, height - miiY - margin ) ) };
-#else
-        constexpr float diagnosticsWidth = 420.0f;
-        const float     miiX             = margin + diagnosticsWidth + gap;
-
-        return { ImVec2( margin, margin ),
-                 ImVec2( diagnosticsWidth, std::min( 360.0f, height - 2.0f * margin ) ),
-                 ImVec2( miiX, margin ),
-                 ImVec2( std::min( 620.0f, width - miiX - margin ), std::min( 440.0f, height - 2.0f * margin ) ) };
-#endif
       }
+#endif
 
       const float panelWidth        = width - 2.0f * margin;
       const float diagnosticsHeight = std::min( 220.0f, ( height - 3.0f * margin - gap ) * 0.4f );
@@ -174,6 +175,9 @@ namespace apollo::debug
     ImGui::NewFrame();
     ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode );
 
+    m_ResetLayout    = extent.width != m_PreviousExtent.width || extent.height != m_PreviousExtent.height;
+    m_PreviousExtent = extent;
+
     DrawDiagnosticsWindow( extent );
     DrawMiiWindow( extent,
                    miiCatalog,
@@ -198,8 +202,8 @@ namespace apollo::debug
   void DebugUi::DrawDiagnosticsWindow( render::Extent2D extent ) noexcept
   {
     const WindowLayout layout = GetWindowLayout( extent );
-    ImGui::SetNextWindowPos( layout.diagnosticsPosition, ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( layout.diagnosticsSize, ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( layout.diagnosticsPosition, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( layout.diagnosticsSize, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
 
     if ( !ImGui::Begin( "Apollo Diagnostics" ) )
     {
@@ -222,7 +226,7 @@ namespace apollo::debug
     if ( gpu.valid )
     {
       ImGui::Text( "GPU frame: %.3f ms", gpu.totalMs );
-      ImGui::Text( "Clear %.3f  Quad %.3f  UI %.3f ms", gpu.clearMs, gpu.quadMs, gpu.uiMs );
+      ImGui::Text( "Clear %.3f  Scene %.3f  UI %.3f ms", gpu.clearMs, gpu.quadMs, gpu.uiMs );
     }
     else
     {
@@ -281,8 +285,8 @@ namespace apollo::debug
                                mii::PreviewCamera &       previewCamera ) noexcept
   {
     const WindowLayout layout = GetWindowLayout( extent );
-    ImGui::SetNextWindowPos( layout.miiPosition, ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( layout.miiSize, ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( layout.miiPosition, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( layout.miiSize, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
 
     if ( !m_FirstFrameReported )
     {
@@ -327,7 +331,11 @@ namespace apollo::debug
     ( void )nxMiiModelReady;
     ( void )nxFaceSourcesReady;
     ( void )nxFaceTexturesReady;
-    ( void )nxHeadRendererReady;
+    ImGui::Text( "Vulkan Mii head: %s", nxHeadRendererReady ? "ready" : "unavailable" );
+    if ( nxHeadRendererReady )
+    {
+      ImGui::TextWrapped( "Preview uses catalog #001; selection shows details only." );
+    }
 #endif
 
     ImGui::Separator();
@@ -342,7 +350,7 @@ namespace apollo::debug
 
       if ( ImGui::BeginTabItem( "Preview camera" ) )
       {
-        DrawMiiPreviewCamera( previewCamera );
+        DrawMiiPreviewCamera( previewCamera, nxHeadRendererReady );
         ImGui::EndTabItem();
       }
 
@@ -399,9 +407,14 @@ namespace apollo::debug
     }
   }
 
-  void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept
+  void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera, bool headRendererReady ) noexcept
   {
-#if defined( APOLLO_PLATFORM_NX )
+    if ( !headRendererReady )
+    {
+      ImGui::TextWrapped( "The Mii head preview is not ready." );
+      return;
+    }
+
     ImGui::TextUnformatted( "Head preview" );
 
     if ( ImGui::Button( "Front" ) )
@@ -435,10 +448,6 @@ namespace apollo::debug
                         mii::PreviewCamera::MaximumDistance,
                         "%.0f units" );
     previewCamera.Clamp();
-#else
-    ImGui::TextWrapped( "The x64 Mii head preview is not connected yet." );
-    ( void )previewCamera;
-#endif
   }
 
 #if defined( APOLLO_PLATFORM_NX )

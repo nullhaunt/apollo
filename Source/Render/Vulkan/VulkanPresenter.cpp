@@ -86,6 +86,20 @@ namespace apollo::render::vulkan
     return true;
   }
 
+  bool VulkanPresenter::LoadMiiHead( const mii::PreviewPackage & package ) noexcept
+  {
+    if ( m_Context == nullptr || m_Swapchain == nullptr || !package.IsReady() )
+    {
+      return false;
+    }
+    return m_MiiHead.Initialize( *m_Context, m_Swapchain->GetRenderPass(), m_CommandBuffer, package );
+  }
+
+  bool VulkanPresenter::IsMiiHeadReady() const noexcept
+  {
+    return m_MiiHead.IsReady();
+  }
+
   bool VulkanPresenter::CreateCommands() noexcept
   {
     vk::CommandPoolCreateInfo poolInfo{};
@@ -603,8 +617,9 @@ namespace apollo::render::vulkan
     vk::PipelineColorBlendStateCreateInfo blend{};
     blend.attachmentCount = 1;
     blend.pAttachments    = &attachment;
-    const vk::DynamicState             dynamicStates[]{ vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-    vk::PipelineDynamicStateCreateInfo dynamic{};
+    vk::PipelineDepthStencilStateCreateInfo depth{};
+    const vk::DynamicState                  dynamicStates[]{ vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+    vk::PipelineDynamicStateCreateInfo      dynamic{};
     dynamic.dynamicStateCount = 2;
     dynamic.pDynamicStates    = dynamicStates;
 
@@ -625,6 +640,7 @@ namespace apollo::render::vulkan
     pipelineInfo.pViewportState      = &viewport;
     pipelineInfo.pRasterizationState = &raster;
     pipelineInfo.pMultisampleState   = &multisample;
+    pipelineInfo.pDepthStencilState  = &depth;
     pipelineInfo.pColorBlendState    = &blend;
     pipelineInfo.pDynamicState       = &dynamic;
     pipelineInfo.layout              = m_PipelineLayout;
@@ -638,7 +654,7 @@ namespace apollo::render::vulkan
     return true;
   }
 
-  bool VulkanPresenter::RecordFrame( u32 imageIndex, ClearColor color ) noexcept
+  bool VulkanPresenter::RecordFrame( u32 imageIndex, ClearColor color, const mii::PreviewCamera & camera ) noexcept
   {
     vk::Result result = m_CommandBuffer.reset();
     if ( result != vk::Result::eSuccess )
@@ -668,11 +684,16 @@ namespace apollo::render::vulkan
     clear.color.float32[ 1 ] = color.green;
     clear.color.float32[ 2 ] = color.blue;
     clear.color.float32[ 3 ] = color.alpha;
+    vk::ClearValue clearValues[ 2 ]{};
+    clearValues[ 0 ]              = clear;
+    clearValues[ 1 ].depthStencil = vk::ClearDepthStencilValue{ 1.0f, 0 };
 
     vk::RenderPassBeginInfo passInfo{};
     passInfo.renderPass        = m_Swapchain->GetRenderPass();
     passInfo.framebuffer       = m_Swapchain->GetFramebuffer( imageIndex );
     passInfo.renderArea.extent = m_Swapchain->GetExtent();
+    passInfo.clearValueCount   = 2;
+    passInfo.pClearValues      = clearValues;
     m_CommandBuffer.beginRenderPass( &passInfo, vk::SubpassContents::eInline );
     vk::ClearAttachment clearAttachment{};
     clearAttachment.aspectMask      = vk::ImageAspectFlagBits::eColor;
@@ -697,13 +718,20 @@ namespace apollo::render::vulkan
     m_CommandBuffer.setViewport( 0, 1, &viewport );
     m_CommandBuffer.setScissor( 0, 1, &scissor );
 
-    m_CommandBuffer.bindPipeline( vk::PipelineBindPoint::eGraphics, m_Pipeline );
-    m_CommandBuffer.bindDescriptorSets(
-      vk::PipelineBindPoint::eGraphics, m_PipelineLayout, 0, 1, &m_TextureSet, 0, nullptr );
-    const vk::DeviceSize offset{};
-    m_CommandBuffer.bindVertexBuffers( 0, 1, &m_VertexBuffer, &offset );
-    m_CommandBuffer.bindIndexBuffer( m_IndexBuffer, 0, vk::IndexType::eUint16 );
-    m_CommandBuffer.drawIndexed( static_cast<u32>( std::size( IndexedQuadIndices ) ), 1, 0, 0, 0 );
+    if ( m_MiiHead.IsReady() )
+    {
+      m_MiiHead.Draw( m_CommandBuffer, extent, camera );
+    }
+    else
+    {
+      m_CommandBuffer.bindPipeline( vk::PipelineBindPoint::eGraphics, m_Pipeline );
+      m_CommandBuffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, m_PipelineLayout, 0, 1, &m_TextureSet, 0, nullptr );
+      const vk::DeviceSize offset{};
+      m_CommandBuffer.bindVertexBuffers( 0, 1, &m_VertexBuffer, &offset );
+      m_CommandBuffer.bindIndexBuffer( m_IndexBuffer, 0, vk::IndexType::eUint16 );
+      m_CommandBuffer.drawIndexed( static_cast<u32>( std::size( IndexedQuadIndices ) ), 1, 0, 0, 0 );
+    }
 
 #if !defined( APOLLO_BUILD_RELEASE )
     if ( m_TimestampQueries )
@@ -734,7 +762,7 @@ namespace apollo::render::vulkan
     return true;
   }
 
-  Result VulkanPresenter::PresentFrame( ClearColor color ) noexcept
+  Result VulkanPresenter::PresentFrame( ClearColor color, const mii::PreviewCamera & camera ) noexcept
   {
     if ( m_Context == nullptr || m_Swapchain == nullptr )
     {
@@ -748,7 +776,7 @@ namespace apollo::render::vulkan
     {
       return acquired;
     }
-    if ( imageIndex >= m_RenderFinishedCount || !RecordFrame( imageIndex, color ) )
+    if ( imageIndex >= m_RenderFinishedCount || !RecordFrame( imageIndex, color, camera ) )
     {
       return Result::Failure;
     }
@@ -848,6 +876,7 @@ namespace apollo::render::vulkan
     if ( device )
     {
       ( void )device.waitIdle();
+      m_MiiHead.Shutdown();
 #if !defined( APOLLO_BUILD_RELEASE )
       if ( m_ImGuiReady )
       {

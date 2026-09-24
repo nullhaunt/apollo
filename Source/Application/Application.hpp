@@ -9,6 +9,7 @@
 #endif
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
+  #include "Mii/MiiPreviewPackage.hpp"
   #include "Platform/Windows/WindowsWindow.hpp"
   #include "Render/Vulkan/VulkanContext.hpp"
   #include "Render/Vulkan/VulkanPresenter.hpp"
@@ -69,6 +70,7 @@ namespace apollo
 #endif
 
 #if defined( APOLLO_PLATFORM_WINDOWS )
+    mii::PreviewPackage             m_MiiPackage{};
     platform::WindowsWindow         m_Window{};
     render::vulkan::VulkanContext   m_Vulkan{};
     render::vulkan::VulkanSwapchain m_Swapchain{};

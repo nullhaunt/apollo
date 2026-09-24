@@ -125,7 +125,8 @@ namespace apollo::render::vulkan
 
   bool VulkanSwapchain::Create( Extent2D requestedExtent ) noexcept
   {
-    if ( !CreateSwapchain( requestedExtent ) || !CreateImageViews() || !CreateRenderPass() || !CreateFramebuffers() )
+    if ( !CreateSwapchain( requestedExtent ) || !CreateImageViews() || !CreateRenderPass() || !CreateDepthImage() ||
+         !CreateFramebuffers() )
     {
       return false;
     }
@@ -191,7 +192,7 @@ namespace apollo::render::vulkan
       return false;
     }
     size_t logicalBytes{};
-    if ( !budget::Rgba8Footprint( selectedExtent.width, selectedExtent.height, 2, logicalBytes ) ||
+    if ( !budget::Rgba8Footprint( selectedExtent.width, selectedExtent.height, 3, logicalBytes ) ||
          !m_PresentationBudget.Acquire( budget::Resource::Presentation, logicalBytes ) )
     {
       diagnostics::Write( Level::Warning, "Vulkan presentation request exceeded the logical renderer budget." );
@@ -304,21 +305,40 @@ namespace apollo::render::vulkan
     colorReference.attachment = 0;
     colorReference.layout     = vk::ImageLayout::eColorAttachmentOptimal;
 
+    vk::AttachmentDescription depth{};
+    depth.format         = vk::Format::eD32Sfloat;
+    depth.samples        = vk::SampleCountFlagBits::e1;
+    depth.loadOp         = vk::AttachmentLoadOp::eClear;
+    depth.storeOp        = vk::AttachmentStoreOp::eDontCare;
+    depth.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
+    depth.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+    depth.initialLayout  = vk::ImageLayout::eUndefined;
+    depth.finalLayout    = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+    vk::AttachmentReference depthReference{};
+    depthReference.attachment = 1;
+    depthReference.layout     = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
     vk::SubpassDescription subpass{};
-    subpass.pipelineBindPoint    = vk::PipelineBindPoint::eGraphics;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments    = &colorReference;
+    subpass.pipelineBindPoint       = vk::PipelineBindPoint::eGraphics;
+    subpass.colorAttachmentCount    = 1;
+    subpass.pColorAttachments       = &colorReference;
+    subpass.pDepthStencilAttachment = &depthReference;
 
     vk::SubpassDependency dependency{};
-    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass    = 0;
-    dependency.srcStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependency.dstStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask =
+      vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    dependency.dstStageMask = dependency.srcStageMask;
+    dependency.dstAccessMask =
+      vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+    const vk::AttachmentDescription attachments[]{ color, depth };
 
     vk::RenderPassCreateInfo info{};
-    info.attachmentCount = 1;
-    info.pAttachments    = &color;
+    info.attachmentCount = 2;
+    info.pAttachments    = attachments;
     info.subpassCount    = 1;
     info.pSubpasses      = &subpass;
     info.dependencyCount = 1;
@@ -328,6 +348,89 @@ namespace apollo::render::vulkan
     if ( result != vk::Result::eSuccess )
     {
       bootstrap::LogFailure( "vkCreateRenderPass", result );
+      return false;
+    }
+    return true;
+  }
+
+  bool VulkanSwapchain::CreateDepthImage() noexcept
+  {
+    vk::FormatProperties formatProperties{};
+    m_Context->GetPhysicalDevice().getFormatProperties( vk::Format::eD32Sfloat, &formatProperties );
+    if ( !( formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment ) )
+    {
+      diagnostics::Write( Level::Error, "Vulkan D32 depth attachments are unavailable." );
+      return false;
+    }
+
+    const vk::Device    device = m_Context->GetDevice();
+    vk::ImageCreateInfo imageInfo{};
+    imageInfo.imageType     = vk::ImageType::e2D;
+    imageInfo.format        = vk::Format::eD32Sfloat;
+    imageInfo.extent        = vk::Extent3D{ m_Extent.width, m_Extent.height, 1 };
+    imageInfo.mipLevels     = 1;
+    imageInfo.arrayLayers   = 1;
+    imageInfo.samples       = vk::SampleCountFlagBits::e1;
+    imageInfo.tiling        = vk::ImageTiling::eOptimal;
+    imageInfo.usage         = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+
+    vk::Result result = device.createImage( &imageInfo, nullptr, &m_DepthImage );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateImage(depth)", result );
+      return false;
+    }
+
+    vk::MemoryRequirements requirements{};
+    device.getImageMemoryRequirements( m_DepthImage, &requirements );
+    vk::PhysicalDeviceMemoryProperties properties{};
+    m_Context->GetPhysicalDevice().getMemoryProperties( &properties );
+    u32 memoryType = properties.memoryTypeCount;
+    for ( u32 index = 0; index < properties.memoryTypeCount; ++index )
+    {
+      if ( ( requirements.memoryTypeBits & ( 1u << index ) ) != 0 &&
+           ( properties.memoryTypes[ index ].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal ) )
+      {
+        memoryType = index;
+        break;
+      }
+    }
+    if ( memoryType == properties.memoryTypeCount )
+    {
+      diagnostics::Write( Level::Error, "No device-local Vulkan depth memory type." );
+      return false;
+    }
+
+    vk::MemoryAllocateInfo allocation{};
+    allocation.allocationSize  = requirements.size;
+    allocation.memoryTypeIndex = memoryType;
+    result                     = device.allocateMemory( &allocation, nullptr, &m_DepthMemory );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkAllocateMemory(depth)", result );
+      return false;
+    }
+    m_DepthAllocation.Acquire( static_cast<size_t>( allocation.allocationSize ) );
+
+    result = device.bindImageMemory( m_DepthImage, m_DepthMemory, 0 );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkBindImageMemory(depth)", result );
+      return false;
+    }
+
+    vk::ImageViewCreateInfo viewInfo{};
+    viewInfo.image                       = m_DepthImage;
+    viewInfo.viewType                    = vk::ImageViewType::e2D;
+    viewInfo.format                      = imageInfo.format;
+    viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.layerCount = 1;
+    result                               = device.createImageView( &viewInfo, nullptr, &m_DepthView );
+    if ( result != vk::Result::eSuccess )
+    {
+      bootstrap::LogFailure( "vkCreateImageView(depth)", result );
       return false;
     }
     return true;
@@ -345,10 +448,11 @@ namespace apollo::render::vulkan
     const vk::Device device = m_Context->GetDevice();
     for ( u32 index = 0; index < m_ImageCount; ++index )
     {
+      const vk::ImageView       attachments[]{ m_Views[ index ], m_DepthView };
       vk::FramebufferCreateInfo info{};
       info.renderPass      = m_RenderPass;
-      info.attachmentCount = 1;
-      info.pAttachments    = &m_Views[ index ];
+      info.attachmentCount = 2;
+      info.pAttachments    = attachments;
       info.width           = m_Extent.width;
       info.height          = m_Extent.height;
       info.layers          = 1;
@@ -374,6 +478,23 @@ namespace apollo::render::vulkan
       }
     }
     m_Framebuffers.reset();
+
+    if ( m_DepthView )
+    {
+      device.destroyImageView( m_DepthView );
+      m_DepthView = nullptr;
+    }
+    if ( m_DepthImage )
+    {
+      device.destroyImage( m_DepthImage );
+      m_DepthImage = nullptr;
+    }
+    if ( m_DepthMemory )
+    {
+      device.freeMemory( m_DepthMemory );
+      m_DepthMemory = nullptr;
+    }
+    m_DepthAllocation.Release();
 
     if ( m_RenderPass )
     {

@@ -36,10 +36,12 @@
     <None Include="Shaders\IndexedQuad.hlsl" />
     <None Include="Shaders\DebugUi.hlsl" />
     <None Include="Shaders\MiiHead.glsl" />
+    <None Include="Shaders\MiiHeadVulkan.hlsl" />
     <None Include="Shaders\MiiHead.xml" />
     <None Include="Tools\BuildIndexedQuadShader.ps1" />
     <None Include="Tools\BuildDebugUiShader.ps1" />
     <None Include="Tools\BuildMiiHeadShader.ps1" />
+    <None Include="Tools\BuildMiiVulkanShader.ps1" />
     <None Include="External\imgui\LICENSE.txt" />
     <None Include="External\imgui\APOLLO-PROVENANCE.md" />
   </ItemGroup>
@@ -61,6 +63,9 @@
     <ClCompile Include="Source\Core\CoreContracts.cpp" />
     <ClCompile Include="Source\Mii\MiiCatalog.cpp" />
     <ClCompile Include="Source\Mii\MiiResources.cpp" />
+    <ClCompile Include="Source\Mii\MiiPreviewPackage.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Mii\MiiNvnModel.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -98,6 +103,9 @@
     <ClCompile Include="Source\Render\Vulkan\VulkanPresenter.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Source\Render\Vulkan\VulkanMiiHead.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Source\Render\Vulkan\VulkanSwapchain.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='NX64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -115,6 +123,7 @@
     <ClInclude Include="Source\Core\Types.hpp" />
     <ClInclude Include="Source\Mii\MiiCatalog.hpp" />
     <ClInclude Include="Source\Mii\MiiResources.hpp" />
+    <ClInclude Include="Source\Mii\MiiPreviewPackage.hpp" />
     <ClInclude Include="Source\Mii\PreviewCamera.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnModel.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnFaceRenderer.hpp" />
@@ -136,6 +145,7 @@
     <ClInclude Include="Source\Render\Vulkan\VulkanBootstrap.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanContext.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanPresenter.hpp" />
+    <ClInclude Include="Source\Render\Vulkan\VulkanMiiHead.hpp" />
     <ClInclude Include="Source\Render\Vulkan\VulkanSwapchain.hpp" />
     <ClInclude Include="Source\World\WorldPosition.hpp" />
   </ItemGroup>
@@ -400,6 +410,12 @@
           Outputs="$(IntDir)Generated\IndexedQuadShader.hpp">
     <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for shader builds." />
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Tools\BuildIndexedQuadShader.ps1&quot; -Source &quot;$(ProjectDir)Shaders\IndexedQuad.hlsl&quot; -OutputDirectory &quot;$(IntDir)Generated&quot; -Platform &quot;$(Platform)&quot; -VulkanSdk &quot;$(VULKAN_SDK)&quot;" />
+  </Target>
+  <Target Name="BuildMiiVulkanShaders" BeforeTargets="ClCompile" Condition="'$(Platform)'=='x64'"
+          Inputs="$(ProjectDir)Shaders\MiiHeadVulkan.hlsl;$(ProjectDir)Tools\BuildMiiVulkanShader.ps1"
+          Outputs="$(IntDir)Generated\MiiHeadVulkanShader.hpp">
+    <Error Condition="'$(VULKAN_SDK)'==''" Text="Set VULKAN_SDK to the installed Vulkan SDK for shader builds." />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Tools\BuildMiiVulkanShader.ps1&quot; -Source &quot;$(ProjectDir)Shaders\MiiHeadVulkan.hlsl&quot; -OutputDirectory &quot;$(IntDir)Generated&quot; -VulkanSdk &quot;$(VULKAN_SDK)&quot;" />
   </Target>
   <Target Name="BuildDebugUiShaders" BeforeTargets="ClCompile" Condition="'$(Platform)'=='NX64' And '$(Configuration)'!='Release'"
           Inputs="$(ProjectDir)Shaders\DebugUi.hlsl;$(ProjectDir)Tools\BuildDebugUiShader.ps1"

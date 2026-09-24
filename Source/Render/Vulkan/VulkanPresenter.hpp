@@ -8,6 +8,7 @@
 #include "Render/RenderTelemetry.hpp"
 #include "Render/RenderTypes.hpp"
 #include "Render/TextureData.hpp"
+#include "Render/Vulkan/VulkanMiiHead.hpp"
 
 #include <memory>
 #include <vulkan/vulkan.hpp>
@@ -29,7 +30,9 @@ namespace apollo::render::vulkan
     VulkanPresenter & operator=( VulkanPresenter && )      = delete;
 
     [[nodiscard]] bool   Initialize( const VulkanContext & context, const VulkanSwapchain & swapchain ) noexcept;
-    [[nodiscard]] Result PresentFrame( ClearColor color ) noexcept;
+    [[nodiscard]] bool   LoadMiiHead( const mii::PreviewPackage & package ) noexcept;
+    [[nodiscard]] bool   IsMiiHeadReady() const noexcept;
+    [[nodiscard]] Result PresentFrame( ClearColor color, const mii::PreviewCamera & camera ) noexcept;
     void                 Shutdown() noexcept;
 
   private:
@@ -47,7 +50,7 @@ namespace apollo::render::vulkan
                                            vk::DeviceMemory &             memory,
                                            telemetry::TrackedAllocation & tracked ) noexcept;
     [[nodiscard]] bool   CreatePipeline() noexcept;
-    [[nodiscard]] bool   RecordFrame( u32 imageIndex, ClearColor color ) noexcept;
+    [[nodiscard]] bool   RecordFrame( u32 imageIndex, ClearColor color, const mii::PreviewCamera & camera ) noexcept;
     [[nodiscard]] Result AcquireImage( u32 & imageIndex, bool & suboptimal ) noexcept;
     [[nodiscard]] Result SubmitFrame( u32 imageIndex ) noexcept;
     [[nodiscard]] Result PresentImage( u32 imageIndex ) noexcept;
@@ -100,6 +103,7 @@ namespace apollo::render::vulkan
     vk::PipelineLayout m_PipelineLayout{};
     vk::Pipeline       m_Pipeline{};
     bool               m_ImGuiReady{};
+    VulkanMiiHead      m_MiiHead{};
     u64                m_PresentedFrames{};
   };
 } // namespace apollo::render::vulkan

@@ -5,9 +5,10 @@ Apollo's Mii preview must show the same canonical 3D head on NX64 and x64. Front
 ## Current boundary
 
 - NX64 constructs `nn::mii::CharModel`, generates its faceline and normal mask textures, and records the head draw through `nn::gfx` views of Apollo's NVN device and command buffer. `nn::gfx` is the SDK layer over the same NVN backend here. The first on-device draw showed an upright head with inverted facial features. With the source vertical-flip flag enabled for both `Faceline` and `Mask`, the owner confirmed the features are upright on NX64 Debug from commit `907412d`.
-- x64 enumerates the SDK Generic Mii defaults and loads the shape and texture inputs, but does not yet construct or draw a Mii head. The camera controls are hidden on x64 until they affect a visible preview.
+- x64 enumerates the SDK Generic Mii defaults and loads the shape and texture inputs. It validates a cooked package for Generic default #0, uploads its geometry and textures into Vulkan, and draws an opaque/translucent head with depth and the shared preview camera. The camera controls are active when the head renderer is ready.
 - The installed NintendoSDK 18.3.1 x64 gfx target defaults to GL4. Its Vulkan interop header and Vulkan Mii texture resources are absent. Apollo's x64 application stays on Vulkan; adding a live OpenGL context to the application would create a second runtime graphics backend.
-- The installed SDK's Generic `MiiSimple` sample builds and runs after the owner's Smart App Control fix. Apollo's offline probe successfully exports the first Generic default's geometry and textures. The x64 Vulkan application does not yet load or draw that package.
+- The installed SDK's Generic `MiiSimple` sample builds and runs after the owner's Smart App Control fix. Apollo's offline probe successfully exports the first Generic default's geometry and textures.
+- The x64 Vulkan swapchain has a D32 depth attachment. Debug runs with Vulkan validation enabled showed front, three-quarter (35 degrees), and profile (90 degrees) views. A resize to a 984 x 611 drawable extent recreated the depth target and head renderer, kept both debug windows visible, and exited cleanly after a window close. No validation messages were reported. These are host runtime observations; an NX64 hardware comparison of the same default is still pending.
 
 ## Geometry feasibility probe
 
@@ -23,7 +24,7 @@ At runtime, Apollo loads the package into Vulkan vertex, index, and image resour
 
 ## Acceptance gates
 
-1. Prove the offline tool can read every required draw-part buffer and sample each required texture from one Generic default Mii. Reject incomplete or mismatched packages rather than showing a partial face. **Offline export and pack validation passed for default #0; runtime package rejection is pending.**
-2. Draw that package on x64 with Vulkan. Verify visible camera motion, depth and translucency, resize, and clean shutdown with Vulkan validation enabled.
+1. Prove the offline tool can read every required draw-part buffer and sample each required texture from one Generic default Mii. Reject incomplete or mismatched packages rather than showing a partial face. **Passed for default #0, including runtime rejection of a deliberately altered package.**
+2. Draw that package on x64 with Vulkan. Verify visible camera motion, depth and translucency, resize, and clean shutdown with Vulkan validation enabled. **Passed for default #0 on the host; visual comparison with NX64 remains in gate 4.**
 3. Switch among the six Generic defaults without stale geometry or face textures. Keep console-only Miis on NX64; do not substitute host defaults for them.
 4. Compare the same default Mii at front, three-quarter, and profile on x64 and NX64. Record the two runtime results separately. Build success alone does not establish visual parity.

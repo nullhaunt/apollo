@@ -5,14 +5,14 @@
 
 namespace apollo::mii
 {
-  // Camera settings shared by the NX head renderer and the x64 cached preview.
+  // Camera settings shared by the NX and Vulkan head renderers.
   // Angles are in degrees; renderers convert them when building their view matrix.
   struct PreviewCamera
   {
     // nn::mii's default model uses a larger coordinate scale than Apollo's
     // later world units. Keep this preview camera in model coordinates.
     static constexpr float TargetHeight    = 30.0f;
-    static constexpr float DefaultDistance = 115.0f;
+    static constexpr float DefaultDistance = 140.0f;
     static constexpr float MinimumDistance = 50.0f;
     static constexpr float MaximumDistance = 250.0f;
 

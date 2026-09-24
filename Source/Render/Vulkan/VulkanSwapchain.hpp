@@ -5,6 +5,7 @@
 #endif
 
 #include "Render/RenderBudget.hpp"
+#include "Render/RenderTelemetry.hpp"
 #include "Render/RenderTypes.hpp"
 
 #include <memory>
@@ -40,12 +41,17 @@ namespace apollo::render::vulkan
     [[nodiscard]] bool CreateSwapchain( Extent2D requestedExtent ) noexcept;
     [[nodiscard]] bool CreateImageViews() noexcept;
     [[nodiscard]] bool CreateRenderPass() noexcept;
+    [[nodiscard]] bool CreateDepthImage() noexcept;
     [[nodiscard]] bool CreateFramebuffers() noexcept;
     void               DestroyResources() noexcept;
 
     const VulkanContext *              m_Context{};
     vk::SwapchainKHR                   m_Swapchain{};
     vk::RenderPass                     m_RenderPass{};
+    vk::Image                          m_DepthImage{};
+    vk::DeviceMemory                   m_DepthMemory{};
+    vk::ImageView                      m_DepthView{};
+    telemetry::TrackedAllocation       m_DepthAllocation{};
     vk::Format                         m_Format{ vk::Format::eUndefined };
     std::unique_ptr<vk::ImageView[]>   m_Views{};
     std::unique_ptr<vk::Framebuffer[]> m_Framebuffers{};

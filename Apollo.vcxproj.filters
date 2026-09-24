@@ -27,9 +27,11 @@
     </None>
     <None Include="Shaders\DebugUi.hlsl"><Filter>Resource Files</Filter></None>
     <None Include="Shaders\MiiHead.glsl"><Filter>Resource Files</Filter></None>
+    <None Include="Shaders\MiiHeadVulkan.hlsl"><Filter>Resource Files</Filter></None>
     <None Include="Shaders\MiiHead.xml"><Filter>Resource Files</Filter></None>
     <None Include="Tools\BuildDebugUiShader.ps1"><Filter>for Build</Filter></None>
     <None Include="Tools\BuildMiiHeadShader.ps1"><Filter>for Build</Filter></None>
+    <None Include="Tools\BuildMiiVulkanShader.ps1"><Filter>for Build</Filter></None>
     <None Include="External\imgui\LICENSE.txt"><Filter>Third Party</Filter></None>
     <None Include="External\imgui\APOLLO-PROVENANCE.md"><Filter>Third Party</Filter></None>
     <None Include="Tools\BuildIndexedQuadShader.ps1">
@@ -51,6 +53,7 @@
     </ClCompile>
     <ClCompile Include="Source\Mii\MiiCatalog.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Source\Mii\MiiResources.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Source\Mii\MiiPreviewPackage.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Source\Mii\MiiNvnModel.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Source\Mii\MiiNvnFaceRenderer.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Source\Mii\MiiNvnHeadRenderer.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -87,6 +90,7 @@
     <ClCompile Include="Source\Render\Vulkan\VulkanPresenter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Render\Vulkan\VulkanMiiHead.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Source\Render\Vulkan\VulkanSwapchain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -113,6 +117,7 @@
     </ClInclude>
     <ClInclude Include="Source\Mii\MiiCatalog.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiResources.hpp"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Source\Mii\MiiPreviewPackage.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiNvnModel.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiNvnFaceRenderer.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiNvnHeadRenderer.hpp"><Filter>Header Files</Filter></ClInclude>
@@ -165,6 +170,7 @@
     <ClInclude Include="Source\Render\Vulkan\VulkanPresenter.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Render\Vulkan\VulkanMiiHead.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Render\Vulkan\VulkanSwapchain.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

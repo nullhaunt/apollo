@@ -48,14 +48,16 @@ namespace apollo::debug
                         bool                       nxHeadRendererReady,
                         mii::PreviewCamera &       previewCamera ) noexcept;
     void DrawMiiCatalog( const mii::Catalog & miiCatalog ) noexcept;
-    void DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept;
+    void DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera, bool headRendererReady ) noexcept;
 #if defined( APOLLO_PLATFORM_NX )
     void         UpdateNxInput( render::Extent2D extent ) noexcept;
     unsigned int m_ConnectedNpadCount{};
 #endif
     std::chrono::steady_clock::time_point m_PreviousFrame{};
+    render::Extent2D                      m_PreviousExtent{};
     bool                                  m_Ready{};
     bool                                  m_FirstFrameReported{};
+    bool                                  m_ResetLayout{};
     int                                   m_SelectedMii{};
   };
 } // namespace apollo::debug
