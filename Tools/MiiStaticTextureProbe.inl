@@ -178,6 +178,12 @@ namespace
       valid = valid && exported;
     }
 
+    const auto * smileView = g_CharModel.GetTextureView( nn::mii::CharModel::TextureType_Mask, 1 );
+    const bool   smileExported =
+      smileView != nullptr && ApolloWriteViewTexture( *smileView, "MiiView5Probe.aptx", report, bindBuffer, isBuffer );
+    std::fprintf( report, "smile mask %s\n", smileExported ? "exported" : "failed" );
+    valid = valid && smileExported;
+
     wglMakeCurrent( priorDeviceContext, priorRenderingContext );
     std::fclose( report );
     return valid;

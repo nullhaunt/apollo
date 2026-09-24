@@ -32,7 +32,9 @@ namespace apollo::render::vulkan
     [[nodiscard]] bool   Initialize( const VulkanContext & context, const VulkanSwapchain & swapchain ) noexcept;
     [[nodiscard]] bool   LoadMiiHead( const mii::PreviewPackage & package ) noexcept;
     [[nodiscard]] bool   IsMiiHeadReady() const noexcept;
-    [[nodiscard]] Result PresentFrame( ClearColor color, const mii::PreviewCamera & camera ) noexcept;
+    [[nodiscard]] Result PresentFrame( ClearColor                 color,
+                                       const mii::PreviewCamera & camera,
+                                       mii::PreviewExpression     expression ) noexcept;
     void                 Shutdown() noexcept;
 
   private:
@@ -50,7 +52,10 @@ namespace apollo::render::vulkan
                                            vk::DeviceMemory &             memory,
                                            telemetry::TrackedAllocation & tracked ) noexcept;
     [[nodiscard]] bool   CreatePipeline() noexcept;
-    [[nodiscard]] bool   RecordFrame( u32 imageIndex, ClearColor color, const mii::PreviewCamera & camera ) noexcept;
+    [[nodiscard]] bool   RecordFrame( u32                        imageIndex,
+                                      ClearColor                 color,
+                                      const mii::PreviewCamera & camera,
+                                      mii::PreviewExpression     expression ) noexcept;
     [[nodiscard]] Result AcquireImage( u32 & imageIndex, bool & suboptimal ) noexcept;
     [[nodiscard]] Result SubmitFrame( u32 imageIndex ) noexcept;
     [[nodiscard]] Result PresentImage( u32 imageIndex ) noexcept;

@@ -50,7 +50,7 @@ namespace apollo::mii
     [[nodiscard]] bool Parse( const ResourceFiles & resources, size_t fileBytes, std::uint8_t defaultIndex ) noexcept;
 
     std::unique_ptr<std::uint8_t[]> m_Data{};
-    Texture                         m_Textures[ 5 ]{};
+    Texture                         m_Textures[ 6 ]{};
     Part                            m_Parts[ 9 ]{};
     std::uint32_t                   m_TextureCount{};
     std::uint32_t                   m_PartCount{};

@@ -656,7 +656,10 @@ namespace apollo::render::vulkan
     return true;
   }
 
-  bool VulkanPresenter::RecordFrame( u32 imageIndex, ClearColor color, const mii::PreviewCamera & camera ) noexcept
+  bool VulkanPresenter::RecordFrame( u32                        imageIndex,
+                                     ClearColor                 color,
+                                     const mii::PreviewCamera & camera,
+                                     mii::PreviewExpression     expression ) noexcept
   {
     vk::Result result = m_CommandBuffer.reset();
     if ( result != vk::Result::eSuccess )
@@ -723,7 +726,7 @@ namespace apollo::render::vulkan
 
     if ( !mii::PreviewScene::DrawPlaceholder( m_MiiHead.IsReady() ) )
     {
-      m_MiiHead.Draw( m_CommandBuffer, extent, camera );
+      m_MiiHead.Draw( m_CommandBuffer, extent, camera, expression );
     }
     else
     {
@@ -765,7 +768,9 @@ namespace apollo::render::vulkan
     return true;
   }
 
-  Result VulkanPresenter::PresentFrame( ClearColor color, const mii::PreviewCamera & camera ) noexcept
+  Result VulkanPresenter::PresentFrame( ClearColor                 color,
+                                        const mii::PreviewCamera & camera,
+                                        mii::PreviewExpression     expression ) noexcept
   {
     if ( m_Context == nullptr || m_Swapchain == nullptr )
     {
@@ -779,7 +784,7 @@ namespace apollo::render::vulkan
     {
       return acquired;
     }
-    if ( imageIndex >= m_RenderFinishedCount || !RecordFrame( imageIndex, color, camera ) )
+    if ( imageIndex >= m_RenderFinishedCount || !RecordFrame( imageIndex, color, camera, expression ) )
     {
       return Result::Failure;
     }

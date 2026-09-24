@@ -76,7 +76,7 @@ namespace apollo::mii
     DrawTextures( model, faceline, mask );
     m_TexturesReady = true;
     diagnostics::Write( diagnostics::Level::Information,
-                        "Mii faceline and normal mask textures generated on the GPU." );
+                        "Mii faceline and Normal/Smile mask textures generated on the GPU." );
     return true;
   }
 
@@ -295,8 +295,8 @@ namespace apollo::mii
     const size_t samplerAlignment = nn::gfx::DescriptorPool::GetDescriptorPoolAlignment( m_Device, samplerInfo );
     const size_t samplerOffset    = RoundUp( textureSize, samplerAlignment );
 
-    constexpr int MaximumTextureViews =
-      nn::mii::CharModel::TextureType_End + 1 + nn::mii::Faceline::TextureType_End + nn::mii::Mask::TextureType_End;
+    constexpr int MaximumTextureViews = nn::mii::CharModel::TextureType_End + PreviewExpressionCount +
+                                        nn::mii::Faceline::TextureType_End + nn::mii::Mask::TextureType_End;
     if ( MaximumTextureViews > TextureDescriptorCount || samplerOffset > MaximumPoolBytes ||
          samplerSize > MaximumPoolBytes - samplerOffset )
     {
@@ -345,15 +345,23 @@ namespace apollo::mii
     m_SamplerDescriptors.GetDescriptorSlot( &m_SamplerSlot, samplerBase );
     m_SamplerDescriptors.EndUpdate();
 
-    BindTextureDescriptors( model, faceline, mask, textureBase );
-    return true;
+    return BindTextureDescriptors( model, faceline, mask, textureBase );
   }
 
-  void NvnFaceRenderer::BindTextureDescriptors( nn::mii::CharModel & model,
+  bool NvnFaceRenderer::BindTextureDescriptors( nn::mii::CharModel & model,
                                                 nn::mii::Faceline &  faceline,
                                                 nn::mii::Mask &      mask,
                                                 int                  firstSlot ) noexcept
   {
+    for ( int index = 0; index < PreviewExpressionCount; ++index )
+    {
+      if ( model.GetTextureView( nn::mii::CharModel::TextureType_Mask, index ) == nullptr )
+      {
+        diagnostics::Write( diagnostics::Level::Error, "Mii expression mask texture view is missing." );
+        return false;
+      }
+    }
+
     int nextTexture = firstSlot;
     m_TextureDescriptors.BeginUpdate();
 
@@ -376,7 +384,7 @@ namespace apollo::mii
       }
     }
 
-    for ( int index = 0; index < 1; ++index )
+    for ( int index = 0; index < PreviewExpressionCount; ++index )
     {
       const nn::gfx::TextureView * view = model.GetTextureView( nn::mii::CharModel::TextureType_Mask, index );
       if ( view != nullptr )
@@ -418,6 +426,7 @@ namespace apollo::mii
     }
 
     m_TextureDescriptors.EndUpdate();
+    return true;
   }
 
   bool NvnFaceRenderer::InitializeCommands() noexcept
@@ -468,13 +477,16 @@ namespace apollo::mii
     m_TextureShader.DrawFaceline( &m_Commands, &m_FacelineBuffer, m_SamplerSlot );
     SubmitCommands();
 
-    m_MaskBuffer.SetColorTarget(
-      m_Device, model.GetMaskTexture( 0 ), m_ShaderInfo, TextureResolution, TextureMipCount );
-    m_MaskBuffer.SetMask( mask, nn::mii::Expression_Normal );
+    for ( int index = 0; index < PreviewExpressionCount; ++index )
+    {
+      m_MaskBuffer.SetColorTarget(
+        m_Device, model.GetMaskTexture( index ), m_ShaderInfo, TextureResolution, TextureMipCount );
+      m_MaskBuffer.SetMask( mask, static_cast<nn::mii::Expression>( index ) );
 
-    BeginCommands();
-    m_TextureShader.DrawMask( &m_Commands, &m_MaskBuffer, m_SamplerSlot );
-    SubmitCommands();
+      BeginCommands();
+      m_TextureShader.DrawMask( &m_Commands, &m_MaskBuffer, m_SamplerSlot );
+      SubmitCommands();
+    }
   }
 
   void NvnFaceRenderer::Shutdown() noexcept

@@ -232,9 +232,9 @@ namespace apollo::mii
   {
     PackageHeader header{};
     std::memcpy( &header, m_Data.get(), sizeof( header ) );
-    if ( std::memcmp( header.magic, "APMP", 4 ) != 0 || header.version != 2 || header.totalBytes != fileBytes ||
+    if ( std::memcmp( header.magic, "APMP", 4 ) != 0 || header.version != 3 || header.totalBytes != fileBytes ||
          header.defaultIndex != defaultIndex || header.partCount == 0 || header.partCount > 9 ||
-         header.textureCount == 0 || header.textureCount > 5 )
+         header.textureCount == 0 || header.textureCount > 6 )
     {
       return false;
     }
@@ -280,7 +280,7 @@ namespace apollo::mii
       }
       TextureHeader texture{};
       std::memcpy( &texture, record, sizeof( texture ) );
-      if ( texture.type > 4 || ( textureMask & ( 1u << texture.type ) ) != 0 || texture.width == 0 ||
+      if ( texture.type > 5 || ( textureMask & ( 1u << texture.type ) ) != 0 || texture.width == 0 ||
            texture.height == 0 || texture.width > 2048 || texture.height > 2048 ||
            texture.pixelBytes != texture.width * texture.height * 4u )
       {
@@ -361,6 +361,10 @@ namespace apollo::mii
         }
         output.textureType   = static_cast<std::uint32_t>( textureType );
         requiredTextureMask |= 1u << textureType;
+        if ( part.drawType == 6 )
+        {
+          requiredTextureMask |= 1u << 5;
+        }
       }
       partMask |= 1u << part.drawType;
     }

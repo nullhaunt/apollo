@@ -4,6 +4,7 @@
   #error "NvnPresenter is available only on NX64."
 #endif
 
+#include "Mii/PreviewExpression.hpp"
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/Nvn/NvnIndexedQuad.hpp"
 #if !defined( APOLLO_BUILD_RELEASE )
@@ -36,7 +37,9 @@ namespace apollo::render::nvn
 
     [[nodiscard]] bool   Initialize( NvnContext & context, Extent2D extent ) noexcept;
     [[nodiscard]] bool   Resize( Extent2D extent ) noexcept;
-    [[nodiscard]] Result PresentFrame( mii::NvnModel & model, const mii::PreviewCamera & camera ) noexcept;
+    [[nodiscard]] Result PresentFrame( mii::NvnModel &            model,
+                                       const mii::PreviewCamera & camera,
+                                       mii::PreviewExpression     expression ) noexcept;
     void                 Shutdown() noexcept;
 
     [[nodiscard]] Extent2D GetExtent() const noexcept;

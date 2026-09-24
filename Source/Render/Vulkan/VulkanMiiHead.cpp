@@ -210,8 +210,8 @@ namespace apollo::render::vulkan
   bool VulkanMiiHead::CreateTextures( const mii::PreviewPackage & package, vk::CommandBuffer commands ) noexcept
   {
     size_t totalBytes{};
-    size_t offsets[ 5 ]{};
-    for ( std::uint32_t type = 0; type < 5; ++type )
+    size_t offsets[ TextureTypeCount ]{};
+    for ( std::uint32_t type = 0; type < TextureTypeCount; ++type )
     {
       const auto * texture = package.GetTexture( type );
       if ( texture != nullptr )
@@ -231,7 +231,7 @@ namespace apollo::render::vulkan
     {
       return false;
     }
-    for ( std::uint32_t type = 0; type < 5; ++type )
+    for ( std::uint32_t type = 0; type < TextureTypeCount; ++type )
     {
       if ( const auto * source = package.GetTexture( type ) )
       {
@@ -249,7 +249,7 @@ namespace apollo::render::vulkan
       return false;
     }
 
-    for ( std::uint32_t type = 0; type < 5; ++type )
+    for ( std::uint32_t type = 0; type < TextureTypeCount; ++type )
     {
       if ( const auto * source = package.GetTexture( type );
            source != nullptr && !CreateTextureImage( *source, m_Textures[ type ] ) )
@@ -351,7 +351,7 @@ namespace apollo::render::vulkan
     {
       return false;
     }
-    for ( std::uint32_t type = 0; type < 5; ++type )
+    for ( std::uint32_t type = 0; type < TextureTypeCount; ++type )
     {
       const auto * source = package.GetTexture( type );
       if ( source == nullptr )
@@ -472,7 +472,7 @@ namespace apollo::render::vulkan
       return false;
     }
 
-    for ( std::uint32_t type = 0; type < 5; ++type )
+    for ( std::uint32_t type = 0; type < TextureTypeCount; ++type )
     {
       Texture & texture = m_Textures[ type ];
       if ( !texture.view )
@@ -624,7 +624,8 @@ namespace apollo::render::vulkan
 
   void VulkanMiiHead::Draw( vk::CommandBuffer          commands,
                             vk::Extent2D               extent,
-                            const mii::PreviewCamera & camera ) const noexcept
+                            const mii::PreviewCamera & camera,
+                            mii::PreviewExpression     expression ) const noexcept
   {
     if ( !m_Ready )
     {
@@ -652,7 +653,9 @@ namespace apollo::render::vulkan
       const Part & part  = m_Parts[ index ];
       const int    blend = part.drawType >= 6 ? 1 : 0;
       commands.bindPipeline( vk::PipelineBindPoint::eGraphics, m_Pipelines[ blend ][ part.cullMode ] );
-      const vk::DescriptorSet set = part.textureType < 5 ? m_Textures[ part.textureType ].set : fallback;
+      const std::uint32_t textureType =
+        part.textureType == 2 && expression == mii::PreviewExpression::Smile ? 5 : part.textureType;
+      const vk::DescriptorSet set = textureType < TextureTypeCount ? m_Textures[ textureType ].set : fallback;
       commands.bindDescriptorSets( vk::PipelineBindPoint::eGraphics, m_PipelineLayout, 0, 1, &set, 0, nullptr );
 
       constants.mode[ 0 ] = part.modulateType;

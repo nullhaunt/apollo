@@ -118,7 +118,8 @@ namespace apollo::debug
                             bool                       nxFaceSourcesReady,
                             bool                       nxFaceTexturesReady,
                             bool                       nxHeadRendererReady,
-                            mii::PreviewCamera &       previewCamera ) noexcept
+                            mii::PreviewCamera &       previewCamera,
+                            mii::PreviewExpression &   previewExpression ) noexcept
   {
     if ( !m_Ready )
     {
@@ -150,7 +151,8 @@ namespace apollo::debug
                    nxFaceSourcesReady,
                    nxFaceTexturesReady,
                    nxHeadRendererReady,
-                   previewCamera );
+                   previewCamera,
+                   previewExpression );
     ImGui::Render();
 
     if ( !m_FirstFrameReported )
@@ -247,7 +249,8 @@ namespace apollo::debug
                                bool                       nxFaceSourcesReady,
                                bool                       nxFaceTexturesReady,
                                bool                       nxHeadRendererReady,
-                               mii::PreviewCamera &       previewCamera ) noexcept
+                               mii::PreviewCamera &       previewCamera,
+                               mii::PreviewExpression &   previewExpression ) noexcept
   {
     const mii::PreviewPanelLayout layout = mii::PreviewScene::Panels( extent );
     ImGui::SetNextWindowPos( Position( layout.inspector ), m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
@@ -295,6 +298,7 @@ namespace apollo::debug
     ImGui::Text( "Vulkan Mii head: %s", nxHeadRendererReady ? "ready" : "unavailable" );
 #endif
 
+    DrawMiiPreviewExpression( previewExpression, nxHeadRendererReady );
     ImGui::Separator();
 
     if ( ImGui::BeginTabBar( "Mii options" ) )
@@ -379,6 +383,25 @@ namespace apollo::debug
   void DebugUi::SetSelectedMii( int index ) noexcept
   {
     m_SelectedMii = index;
+  }
+
+  void DebugUi::DrawMiiPreviewExpression( mii::PreviewExpression & previewExpression, bool headRendererReady ) noexcept
+  {
+    ImGui::BeginDisabled( !headRendererReady );
+    ImGui::TextUnformatted( "Expression" );
+    ImGui::SameLine();
+
+    if ( ImGui::RadioButton( "Normal", previewExpression == mii::PreviewExpression::Normal ) )
+    {
+      previewExpression = mii::PreviewExpression::Normal;
+    }
+    ImGui::SameLine();
+
+    if ( ImGui::RadioButton( "Smile", previewExpression == mii::PreviewExpression::Smile ) )
+    {
+      previewExpression = mii::PreviewExpression::Smile;
+    }
+    ImGui::EndDisabled();
   }
 
   void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera, bool headRendererReady ) noexcept

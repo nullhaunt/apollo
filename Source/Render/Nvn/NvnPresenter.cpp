@@ -134,7 +134,9 @@ namespace apollo::render::nvn
     return true;
   }
 
-  Result NvnPresenter::PresentFrame( mii::NvnModel & model, const mii::PreviewCamera & camera ) noexcept
+  Result NvnPresenter::PresentFrame( mii::NvnModel &            model,
+                                     const mii::PreviewCamera & camera,
+                                     mii::PreviewExpression     expression ) noexcept
   {
     if ( !m_Ready )
     {
@@ -188,7 +190,7 @@ namespace apollo::render::nvn
     }
     else
     {
-      model.RecordHead( commands, *target, m_Extent, textureIndex, camera );
+      model.RecordHead( commands, *target, m_Extent, textureIndex, camera, expression );
     }
 #if !defined( APOLLO_BUILD_RELEASE )
     commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + 2 * sizeof( ::nvn::CounterData ) );

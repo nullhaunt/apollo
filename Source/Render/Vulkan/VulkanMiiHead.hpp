@@ -6,6 +6,7 @@
 
 #include "Mii/MiiPreviewPackage.hpp"
 #include "Mii/PreviewCamera.hpp"
+#include "Mii/PreviewExpression.hpp"
 #include "Render/RenderBudget.hpp"
 #include "Render/RenderTelemetry.hpp"
 
@@ -28,11 +29,16 @@ namespace apollo::render::vulkan
                                    vk::RenderPass              renderPass,
                                    vk::CommandBuffer           uploadCommands,
                                    const mii::PreviewPackage & package ) noexcept;
-    void Draw( vk::CommandBuffer commands, vk::Extent2D extent, const mii::PreviewCamera & camera ) const noexcept;
-    void Shutdown() noexcept;
+    void               Draw( vk::CommandBuffer          commands,
+                             vk::Extent2D               extent,
+                             const mii::PreviewCamera & camera,
+                             mii::PreviewExpression     expression ) const noexcept;
+    void               Shutdown() noexcept;
     [[nodiscard]] bool IsReady() const noexcept;
 
   private:
+    static constexpr std::uint32_t TextureTypeCount = 6;
+
     struct Texture
     {
       vk::Image                    image{};
@@ -83,7 +89,7 @@ namespace apollo::render::vulkan
     budget::Reservation          m_TextureBudget{};
     budget::Reservation          m_UploadBudget{};
 
-    Texture                 m_Textures[ 5 ]{};
+    Texture                 m_Textures[ TextureTypeCount ]{};
     vk::Sampler             m_Sampler{};
     vk::DescriptorSetLayout m_SetLayout{};
     vk::DescriptorPool      m_DescriptorPool{};

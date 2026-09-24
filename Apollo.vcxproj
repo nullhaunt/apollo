@@ -125,6 +125,7 @@
     <ClInclude Include="Source\Mii\MiiResources.hpp" />
     <ClInclude Include="Source\Mii\MiiPreviewPackage.hpp" />
     <ClInclude Include="Source\Mii\PreviewCamera.hpp" />
+    <ClInclude Include="Source\Mii\PreviewExpression.hpp" />
     <ClInclude Include="Source\Mii\PreviewScene.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnModel.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnFaceRenderer.hpp" />

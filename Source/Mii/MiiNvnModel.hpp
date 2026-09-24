@@ -8,6 +8,7 @@
 #include "Mii/MiiNvnFaceRenderer.hpp"
 #include "Mii/MiiNvnHeadRenderer.hpp"
 #include "Mii/MiiResources.hpp"
+#include "Mii/PreviewExpression.hpp"
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/RenderTelemetry.hpp"
 
@@ -53,7 +54,8 @@ namespace apollo::mii
                      ::nvn::Texture &       target,
                      render::Extent2D       extent,
                      int                    backbuffer,
-                     const PreviewCamera &  camera ) noexcept;
+                     const PreviewCamera &  camera,
+                     PreviewExpression      expression ) noexcept;
 
   private:
     void               InitializeGfx( render::nvn::NvnContext & context ) noexcept;

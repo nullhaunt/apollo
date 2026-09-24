@@ -123,7 +123,7 @@ namespace apollo::mii
     modelInfo.SetDynamicTextureResolution( 512, 512 );
     modelInfo.SetDynamicTextureFormat( nn::gfx::ImageFormat_R8_G8_B8_A8_Unorm, nn::gfx::ImageFormat_R8_G8_B8_A8_Unorm );
     modelInfo.SetDynamicTextureMipCount( 1, 1 );
-    modelInfo.SetMaskCount( 1 );
+    modelInfo.SetMaskCount( PreviewExpressionCount );
 
     const size_t modelSize      = nn::mii::CharModel::CalculateMemorySize( modelInfo );
     const size_t modelAlignment = nn::mii::CharModel::CalculateMemoryAlignment( modelInfo );
@@ -203,7 +203,7 @@ namespace apollo::mii
 
   bool NvnModel::InitializeFaceSources( const Entry & entry ) noexcept
   {
-    constexpr int expressionFlags = nn::mii::ExpressionFlag_Normal;
+    constexpr int expressionFlags = nn::mii::ExpressionFlag_Normal | nn::mii::ExpressionFlag_Smile;
     // Apollo's preview samples the generated textures with the opposite V
     // orientation from the SDK source layout. Apply the SDK's source flip to
     // both layers so the face and expression stay aligned.
@@ -321,7 +321,14 @@ namespace apollo::mii
       return false;
     }
 
-    diagnostics::Write( diagnostics::Level::Information, "Mii Faceline and normal-expression Mask sources ready." );
+    if ( !m_Mask.IsAvailableExpression( nn::mii::Expression_Normal ) ||
+         !m_Mask.IsAvailableExpression( nn::mii::Expression_Smile ) )
+    {
+      diagnostics::Write( diagnostics::Level::Error, "Mii Normal/Smile Mask source is incomplete." );
+      return false;
+    }
+
+    diagnostics::Write( diagnostics::Level::Information, "Mii Faceline and Normal/Smile Mask sources ready." );
     return true;
   }
 
@@ -334,11 +341,12 @@ namespace apollo::mii
                              ::nvn::Texture &       target,
                              render::Extent2D       extent,
                              int                    backbuffer,
-                             const PreviewCamera &  camera ) noexcept
+                             const PreviewCamera &  camera,
+                             PreviewExpression      expression ) noexcept
   {
     if ( m_HeadRenderer.IsReady() )
     {
-      ( void )m_HeadRenderer.RecordDraw( commands, target, extent, backbuffer, camera );
+      ( void )m_HeadRenderer.RecordDraw( commands, target, extent, backbuffer, camera, expression );
     }
   }
 

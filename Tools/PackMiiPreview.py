@@ -95,6 +95,9 @@ def read_geometry(path: Path) -> tuple[int, bytes, set[int]]:
 
 def read_textures(directory: Path, required: set[int]) -> tuple[int, bytes]:
     payload = bytearray()
+    if 2 not in required:
+        raise ValueError("normal expression mask is missing")
+    required.add(5)  # Smile mask, second SDK mask slot.
     for texture_type in sorted(required):
         path = directory / f"MiiView{texture_type}Probe.aptx"
         data = read_capped(path)
@@ -136,7 +139,7 @@ def build_package(directory: Path, sdk_root: Path, default_index: int) -> bytes:
         raise ValueError("preview package exceeds 32 MiB")
 
     header = PACKAGE_HEADER.pack(
-        b"APMP", 2, total_bytes, part_count, texture_count, default_index,
+        b"APMP", 3, total_bytes, part_count, texture_count, default_index,
         char_info, source_hash, hashlib.sha256(body).digest()
     )
     return header + body

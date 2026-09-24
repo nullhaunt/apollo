@@ -26,7 +26,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $probeFiles = @('MiiCharInfoProbe.bin', 'MiiGeometryProbe.apmg',
                 'MiiFacelineProbe.aptx', 'MiiMaskProbe.aptx', 'MiiViewProbe.txt')
-for ($view = 0; $view -lt 5; ++$view) {
+for ($view = 0; $view -lt 6; ++$view) {
   $probeFiles += "MiiView${view}Probe.aptx"
 }
 

@@ -459,7 +459,8 @@ namespace apollo::mii
                                     ::nvn::Texture &       target,
                                     render::Extent2D       extent,
                                     int                    backbuffer,
-                                    const PreviewCamera &  camera ) noexcept
+                                    const PreviewCamera &  camera,
+                                    PreviewExpression      expression ) noexcept
   {
     if ( !m_Ready || !extent.IsValid() || backbuffer < 0 || backbuffer >= BackbufferCount )
     {
@@ -491,7 +492,7 @@ namespace apollo::mii
     gfxCommands.SetDescriptorPool( m_Faces->SamplerDescriptors() );
     gfxCommands.InvalidateMemory( nn::gfx::GpuAccess_Texture | nn::gfx::GpuAccess_IndexBuffer |
                                   nn::gfx::GpuAccess_ConstantBuffer | nn::gfx::GpuAccess_VertexBuffer );
-    DrawParts( gfxCommands, backbuffer );
+    DrawParts( gfxCommands, backbuffer, expression );
 
     if ( !m_FirstDrawReported )
     {
@@ -508,13 +509,15 @@ namespace apollo::mii
     m_Cameras[ backbuffer ].Unmap();
   }
 
-  void NvnHeadRenderer::DrawParts( nn::gfx::CommandBuffer & commands, int backbuffer ) noexcept
+  void NvnHeadRenderer::DrawParts( nn::gfx::CommandBuffer & commands,
+                                   int                      backbuffer,
+                                   PreviewExpression        expression ) noexcept
   {
     for ( int index = 0; index < DrawTypeCount; ++index )
     {
       const auto                 type = static_cast<nn::mii::CharModel::DrawType>( index );
-      const nn::mii::DrawParam * part =
-        m_Model->GetDrawParam( type, nn::mii::CreateModelType_Normal, nn::mii::CreateNoseType_Normal, 0 );
+      const nn::mii::DrawParam * part = m_Model->GetDrawParam(
+        type, nn::mii::CreateModelType_Normal, nn::mii::CreateNoseType_Normal, static_cast<int>( expression ) );
       if ( part != nullptr )
       {
         DrawPart( commands, *part, index, backbuffer );

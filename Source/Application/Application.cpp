@@ -197,10 +197,12 @@ namespace apollo
                             false,
                             false,
                             m_Presenter.IsMiiHeadReady(),
-                            m_MiiPreviewCamera );
+                            m_MiiPreviewCamera,
+                            m_MiiPreviewExpression );
       ApplyMiiSelection();
   #endif
-      const render::Result frame = m_Presenter.PresentFrame( mii::PreviewScene::Background, m_MiiPreviewCamera );
+      const render::Result frame =
+        m_Presenter.PresentFrame( mii::PreviewScene::Background, m_MiiPreviewCamera, m_MiiPreviewExpression );
       if ( frame == render::Result::SurfaceOutOfDate )
       {
         const render::Result recovered = RecreatePresentation( extent );
@@ -256,10 +258,12 @@ namespace apollo
                             m_MiiModel.AreFaceSourcesReady(),
                             m_MiiModel.AreFaceTexturesReady(),
                             m_MiiModel.IsHeadRendererReady(),
-                            m_MiiPreviewCamera );
+                            m_MiiPreviewCamera,
+                            m_MiiPreviewExpression );
       ApplyMiiSelection();
   #endif
-      if ( m_NvnPresenter.PresentFrame( m_MiiModel, m_MiiPreviewCamera ) != render::Result::Success )
+      if ( m_NvnPresenter.PresentFrame( m_MiiModel, m_MiiPreviewCamera, m_MiiPreviewExpression ) !=
+           render::Result::Success )
       {
         diagnostics::Write( diagnostics::Level::Error, "NVN presentation failed." );
         Shutdown();

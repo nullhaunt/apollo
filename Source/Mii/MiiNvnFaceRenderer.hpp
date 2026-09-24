@@ -4,6 +4,7 @@
   #error "MiiNvnFaceRenderer is available only on NX64."
 #endif
 
+#include "Mii/PreviewExpression.hpp"
 #include "Render/RenderTelemetry.hpp"
 
 #include <nn/gfx.h>
@@ -13,7 +14,7 @@
 
 namespace apollo::mii
 {
-  // Generates the model's faceline and normal mask once before the first frame.
+  // Generates the faceline and both preview masks before the first frame.
   // The device and Mii objects are borrowed from NvnModel.
   class NvnFaceRenderer final
   {
@@ -52,7 +53,7 @@ namespace apollo::mii
     [[nodiscard]] bool InitializeDescriptors( nn::mii::CharModel & model,
                                               nn::mii::Faceline &  faceline,
                                               nn::mii::Mask &      mask ) noexcept;
-    void               BindTextureDescriptors( nn::mii::CharModel & model,
+    bool               BindTextureDescriptors( nn::mii::CharModel & model,
                                                nn::mii::Faceline &  faceline,
                                                nn::mii::Mask &      mask,
                                                int                  firstSlot ) noexcept;

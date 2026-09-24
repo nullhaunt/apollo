@@ -3,6 +3,7 @@
 #include "Mii/MiiCatalog.hpp"
 #include "Mii/MiiResources.hpp"
 #include "Mii/PreviewCamera.hpp"
+#include "Mii/PreviewExpression.hpp"
 #include "Platform/Platform.hpp"
 #if !defined( APOLLO_BUILD_RELEASE )
   #include "Debug/DebugUi.hpp"
@@ -64,11 +65,12 @@ namespace apollo
     [[nodiscard]] render::Result RecreatePresentation( platform::ClientExtent extent ) noexcept;
 #endif
 
-    State              m_State{ State::Created };
-    mii::Catalog       m_MiiCatalog{};
-    mii::ResourceFiles m_MiiResources{};
-    mii::PreviewCamera m_MiiPreviewCamera{};
-    int                m_RenderedMiiIndex{ -1 };
+    State                  m_State{ State::Created };
+    mii::Catalog           m_MiiCatalog{};
+    mii::ResourceFiles     m_MiiResources{};
+    mii::PreviewCamera     m_MiiPreviewCamera{};
+    mii::PreviewExpression m_MiiPreviewExpression{ mii::PreviewExpression::Normal };
+    int                    m_RenderedMiiIndex{ -1 };
 
 #if !defined( APOLLO_BUILD_RELEASE )
     debug::DebugUi m_DebugUi{};

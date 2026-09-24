@@ -6,6 +6,7 @@
 
 #include "Mii/MiiNvnFaceRenderer.hpp"
 #include "Mii/PreviewCamera.hpp"
+#include "Mii/PreviewExpression.hpp"
 #include "Render/RenderTelemetry.hpp"
 #include "Render/RenderTypes.hpp"
 
@@ -33,7 +34,8 @@ namespace apollo::mii
                                    ::nvn::Texture &       target,
                                    render::Extent2D       extent,
                                    int                    backbuffer,
-                                   const PreviewCamera &  camera ) noexcept;
+                                   const PreviewCamera &  camera,
+                                   PreviewExpression      expression ) noexcept;
     void               ResetTargets() noexcept;
     void               Shutdown() noexcept;
     [[nodiscard]] bool IsReady() const noexcept
@@ -51,12 +53,12 @@ namespace apollo::mii
     [[nodiscard]] bool CreateTarget( ::nvn::Texture & target, render::Extent2D extent, int backbuffer ) noexcept;
     [[nodiscard]] bool CreateDepth( render::Extent2D extent ) noexcept;
     [[nodiscard]] bool CreateViewport( render::Extent2D extent ) noexcept;
-    void               DrawParts( nn::gfx::CommandBuffer & commands, int backbuffer ) noexcept;
-    void               DrawPart( nn::gfx::CommandBuffer &   commands,
-                                 const nn::mii::DrawParam & part,
-                                 int                        drawType,
-                                 int                        backbuffer ) noexcept;
-    void               UpdateCamera( int backbuffer, render::Extent2D extent, const PreviewCamera & camera ) noexcept;
+    void DrawParts( nn::gfx::CommandBuffer & commands, int backbuffer, PreviewExpression expression ) noexcept;
+    void DrawPart( nn::gfx::CommandBuffer &   commands,
+                   const nn::mii::DrawParam & part,
+                   int                        drawType,
+                   int                        backbuffer ) noexcept;
+    void UpdateCamera( int backbuffer, render::Extent2D extent, const PreviewCamera & camera ) noexcept;
 
     nn::gfx::Device *        m_Device{};
     ::nvn::Queue *           m_NvnQueue{};
