@@ -1,6 +1,7 @@
 #include "Debug/DebugUi.hpp"
 
 #include "Core/BuildConfiguration.hpp"
+#include "Mii/PreviewScene.hpp"
 #include "Platform/Diagnostics.hpp"
 #include "Platform/Platform.hpp"
 #include "Render/RenderBudget.hpp"
@@ -22,51 +23,14 @@ namespace apollo::debug
 {
   namespace
   {
-    struct WindowLayout
+    [[nodiscard]] ImVec2 Position( mii::PreviewRect rectangle ) noexcept
     {
-      ImVec2 diagnosticsPosition{};
-      ImVec2 diagnosticsSize{};
-      ImVec2 miiPosition{};
-      ImVec2 miiSize{};
-    };
+      return { rectangle.x, rectangle.y };
+    }
 
-    [[nodiscard]] WindowLayout GetWindowLayout( render::Extent2D extent ) noexcept
+    [[nodiscard]] ImVec2 Size( mii::PreviewRect rectangle ) noexcept
     {
-      const float width  = static_cast<float>( extent.width );
-      const float height = static_cast<float>( extent.height );
-      const float margin = std::min( { 20.0f, width * 0.25f, height * 0.25f } );
-      const float gap    = std::min( 16.0f, height * 0.1f );
-
-#if defined( APOLLO_PLATFORM_WINDOWS )
-      if ( width >= 900.0f )
-      {
-        const float panelWidth = width >= 1100.0f ? 350.0f : 260.0f;
-        return { ImVec2( margin, margin ),
-                 ImVec2( panelWidth, std::min( 360.0f, height - 2.0f * margin ) ),
-                 ImVec2( width - margin - panelWidth, margin ),
-                 ImVec2( panelWidth, std::min( 440.0f, height - 2.0f * margin ) ) };
-      }
-#else
-      if ( width >= 1100.0f )
-      {
-        constexpr float panelWidth        = 420.0f;
-        const float     diagnosticsHeight = std::min( 200.0f, height * 0.3f );
-        const float     miiY              = margin + diagnosticsHeight + gap;
-        return { ImVec2( margin, margin ),
-                 ImVec2( panelWidth, diagnosticsHeight ),
-                 ImVec2( margin, miiY ),
-                 ImVec2( panelWidth, std::min( 440.0f, height - miiY - margin ) ) };
-      }
-#endif
-
-      const float panelWidth        = width - 2.0f * margin;
-      const float diagnosticsHeight = std::min( 220.0f, ( height - 3.0f * margin - gap ) * 0.4f );
-      const float miiY              = margin + diagnosticsHeight + gap;
-
-      return { ImVec2( margin, margin ),
-               ImVec2( panelWidth, diagnosticsHeight ),
-               ImVec2( margin, miiY ),
-               ImVec2( panelWidth, height - miiY - margin ) };
+      return { rectangle.width, rectangle.height };
     }
   } // namespace
 
@@ -201,9 +165,10 @@ namespace apollo::debug
 
   void DebugUi::DrawDiagnosticsWindow( render::Extent2D extent ) noexcept
   {
-    const WindowLayout layout = GetWindowLayout( extent );
-    ImGui::SetNextWindowPos( layout.diagnosticsPosition, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( layout.diagnosticsSize, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+    const mii::PreviewPanelLayout layout = mii::PreviewScene::Panels( extent );
+    ImGui::SetNextWindowPos( Position( layout.diagnostics ),
+                             m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( Size( layout.diagnostics ), m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
 
     if ( !ImGui::Begin( "Apollo Diagnostics" ) )
     {
@@ -284,9 +249,9 @@ namespace apollo::debug
                                bool                       nxHeadRendererReady,
                                mii::PreviewCamera &       previewCamera ) noexcept
   {
-    const WindowLayout layout = GetWindowLayout( extent );
-    ImGui::SetNextWindowPos( layout.miiPosition, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( layout.miiSize, m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+    const mii::PreviewPanelLayout layout = mii::PreviewScene::Panels( extent );
+    ImGui::SetNextWindowPos( Position( layout.inspector ), m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( Size( layout.inspector ), m_ResetLayout ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
 
     if ( !m_FirstFrameReported )
     {
@@ -427,7 +392,6 @@ namespace apollo::debug
     {
       previewCamera.SetThreeQuarter();
     }
-    ImGui::SameLine();
 
     if ( ImGui::Button( "Profile" ) )
     {

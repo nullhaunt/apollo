@@ -1,4 +1,5 @@
 #include "Render/Vulkan/VulkanPresenter.hpp"
+#include "Mii/PreviewScene.hpp"
 
 #include "IndexedQuadShader.hpp"
 #include "Platform/Diagnostics.hpp"
@@ -711,14 +712,15 @@ namespace apollo::render::vulkan
     }
 #endif
 
-    const vk::Extent2D extent = m_Swapchain->GetExtent();
-    const vk::Viewport viewport{
-      0.0f, 0.0f, static_cast<float>( extent.width ), static_cast<float>( extent.height ), 0.0f, 1.0f };
-    const vk::Rect2D scissor{ { 0, 0 }, extent };
+    const vk::Extent2D     extent       = m_Swapchain->GetExtent();
+    const render::Extent2D headViewport = mii::PreviewScene::HeadViewport( { extent.width, extent.height } );
+    const vk::Viewport     viewport{
+      0.0f, 0.0f, static_cast<float>( headViewport.width ), static_cast<float>( headViewport.height ), 0.0f, 1.0f };
+    const vk::Rect2D scissor{ { 0, 0 }, { headViewport.width, headViewport.height } };
     m_CommandBuffer.setViewport( 0, 1, &viewport );
     m_CommandBuffer.setScissor( 0, 1, &scissor );
 
-    if ( m_MiiHead.IsReady() )
+    if ( !mii::PreviewScene::DrawPlaceholder( m_MiiHead.IsReady() ) )
     {
       m_MiiHead.Draw( m_CommandBuffer, extent, camera );
     }

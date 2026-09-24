@@ -122,6 +122,7 @@
     <ClInclude Include="Source\Mii\MiiNvnFaceRenderer.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\MiiNvnHeadRenderer.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Mii\PreviewCamera.hpp"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Source\Mii\PreviewScene.hpp"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Source\Platform\Diagnostics.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

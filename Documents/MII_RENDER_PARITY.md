@@ -9,6 +9,9 @@ Apollo's Mii preview must show the same canonical 3D head on NX64 and x64. Front
 - The installed NintendoSDK 18.3.1 x64 gfx target defaults to GL4. Its Vulkan interop header and Vulkan Mii texture resources are absent. Apollo's x64 application stays on Vulkan; adding a live OpenGL context to the application would create a second runtime graphics backend.
 - The installed SDK's Generic `MiiSimple` sample builds and runs after the owner's Smart App Control fix. Apollo's offline probe successfully exports the first Generic default's geometry and textures.
 - The x64 Vulkan swapchain has a D32 depth attachment. Debug runs with Vulkan validation enabled showed front, three-quarter (35 degrees), and profile (90 degrees) views. A resize to a 984 x 611 drawable extent recreated the depth target and head renderer, kept both debug windows visible, and exited cleanly after a window close. No validation messages were reported. These are host runtime observations; an NX64 hardware comparison of the same default is still pending.
+- The preview now owns its background, proof-quad fallback, panel positions, full-frame head viewport, and camera matrix in `Source/Mii/PreviewScene.hpp`. Both presenters use that policy. NVN and Vulkan retain only their required clip-space differences. The former NX64 right-side viewport offset was removed. Debug and Release builds pass on both platforms. The owner confirmed the updated preview presentation succeeds on both x64 and NX64; a same-Mii, angle-by-angle visual comparison remains pending.
+
+Preview composition changes belong in the shared scene policy. Backend code translates that policy into Vulkan or NVN commands. Review each preview change against both builds and record runtime observations for each platform separately.
 
 ## Geometry feasibility probe
 

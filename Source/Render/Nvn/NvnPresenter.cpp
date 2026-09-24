@@ -1,6 +1,7 @@
 #include "Render/Nvn/NvnPresenter.hpp"
 
 #include "Mii/MiiNvnModel.hpp"
+#include "Mii/PreviewScene.hpp"
 
 #include "Platform/Diagnostics.hpp"
 
@@ -17,7 +18,6 @@ namespace apollo::render::nvn
   {
     constexpr size_t CommandMemoryPerBuffer = 256 * 1024;
     constexpr size_t ControlMemoryPerBuffer = 64 * 1024;
-    constexpr float  ClearColor[ 4 ]        = { 0.08f, 0.12f, 0.20f, 1.0f };
 
     [[nodiscard]] constexpr size_t AlignUp( size_t value, size_t alignment ) noexcept
     {
@@ -176,12 +176,20 @@ namespace apollo::render::nvn
     // NVN clears are clipped by the current scissor. The previous ImGui pass
     // leaves its last panel clip active on this command buffer.
     commands.SetScissor( 0, 0, static_cast<int>( m_Extent.width ), static_cast<int>( m_Extent.height ) );
-    commands.ClearColor( 0, ClearColor, ::nvn::ClearColorMask::RGBA );
+    constexpr render::ClearColor background = mii::PreviewScene::Background;
+    constexpr float              color[ 4 ] = { background.red, background.green, background.blue, background.alpha };
+    commands.ClearColor( 0, color, ::nvn::ClearColorMask::RGBA );
 #if !defined( APOLLO_BUILD_RELEASE )
     commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + sizeof( ::nvn::CounterData ) );
 #endif
-    m_IndexedQuad.RecordDraw( commands, m_Extent );
-    model.RecordHead( commands, *target, m_Extent, textureIndex, camera );
+    if ( mii::PreviewScene::DrawPlaceholder( model.IsHeadRendererReady() ) )
+    {
+      m_IndexedQuad.RecordDraw( commands, m_Extent );
+    }
+    else
+    {
+      model.RecordHead( commands, *target, m_Extent, textureIndex, camera );
+    }
 #if !defined( APOLLO_BUILD_RELEASE )
     commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + 2 * sizeof( ::nvn::CounterData ) );
 #endif

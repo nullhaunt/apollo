@@ -1,5 +1,6 @@
 #include "Render/Vulkan/VulkanMiiHead.hpp"
 
+#include "Mii/PreviewScene.hpp"
 #include "MiiHeadVulkanShader.hpp"
 #include "Platform/Diagnostics.hpp"
 #include "Render/Vulkan/VulkanBootstrap.hpp"
@@ -15,13 +16,6 @@ namespace apollo::render::vulkan
 {
   namespace
   {
-    struct Vec3
-    {
-      float x{};
-      float y{};
-      float z{};
-    };
-
     struct DrawConstants
     {
       float clipFromModel[ 16 ]{};
@@ -29,83 +23,6 @@ namespace apollo::render::vulkan
       float colors[ 3 ][ 4 ]{};
     };
     static_assert( sizeof( DrawConstants ) == 128 );
-
-    [[nodiscard]] Vec3 Cross( Vec3 left, Vec3 right ) noexcept
-    {
-      return {
-        left.y * right.z - left.z * right.y, left.z * right.x - left.x * right.z, left.x * right.y - left.y * right.x };
-    }
-
-    [[nodiscard]] float Dot( Vec3 left, Vec3 right ) noexcept
-    {
-      return left.x * right.x + left.y * right.y + left.z * right.z;
-    }
-
-    [[nodiscard]] Vec3 Normalize( Vec3 value ) noexcept
-    {
-      const float inverse = 1.0f / std::sqrt( Dot( value, value ) );
-      return { value.x * inverse, value.y * inverse, value.z * inverse };
-    }
-
-    void MakeCameraMatrix( float * output, vk::Extent2D extent, const mii::PreviewCamera & input ) noexcept
-    {
-      mii::PreviewCamera camera = input;
-      camera.Clamp();
-
-      constexpr float Pi         = 3.14159265358979323846f;
-      const float     yaw        = camera.yawDegrees * Pi / 180.0f;
-      const float     pitch      = camera.pitchDegrees * Pi / 180.0f;
-      const float     horizontal = camera.distance * std::cos( pitch );
-      const Vec3      eye{ horizontal * std::sin( yaw ),
-                      mii::PreviewCamera::TargetHeight + camera.distance * std::sin( pitch ),
-                      horizontal * std::cos( yaw ) };
-      const Vec3      target{ 0.0f, mii::PreviewCamera::TargetHeight, 0.0f };
-      const Vec3      forward = Normalize( { target.x - eye.x, target.y - eye.y, target.z - eye.z } );
-      const Vec3      right   = Normalize( Cross( forward, { 0.0f, 1.0f, 0.0f } ) );
-      const Vec3      up      = Cross( right, forward );
-
-      const float view[ 16 ]{ right.x,
-                              up.x,
-                              -forward.x,
-                              0.0f,
-                              right.y,
-                              up.y,
-                              -forward.y,
-                              0.0f,
-                              right.z,
-                              up.z,
-                              -forward.z,
-                              0.0f,
-                              -Dot( right, eye ),
-                              -Dot( up, eye ),
-                              Dot( forward, eye ),
-                              1.0f };
-
-      const float     previewWidth = static_cast<float>( extent.width >= 1100 ? extent.width - 460 : extent.width );
-      const float     aspect       = previewWidth / static_cast<float>( extent.height );
-      const float     scale        = 1.0f / std::tan( Pi / 8.0f );
-      constexpr float nearZ        = 1.0f;
-      constexpr float farZ         = 500.0f;
-      float           projection[ 16 ]{};
-      projection[ 0 ]  = scale / aspect;
-      projection[ 5 ]  = -scale;
-      projection[ 10 ] = farZ / ( nearZ - farZ );
-      projection[ 11 ] = -1.0f;
-      projection[ 14 ] = farZ * nearZ / ( nearZ - farZ );
-
-      for ( int column = 0; column < 4; ++column )
-      {
-        for ( int row = 0; row < 4; ++row )
-        {
-          float value = 0.0f;
-          for ( int term = 0; term < 4; ++term )
-          {
-            value += projection[ term * 4 + row ] * view[ column * 4 + term ];
-          }
-          output[ column * 4 + row ] = value;
-        }
-      }
-    }
 
     [[nodiscard]] std::uint32_t FindMemoryType( const VulkanContext &   context,
                                                 std::uint32_t           candidates,
@@ -715,7 +632,8 @@ namespace apollo::render::vulkan
     }
 
     DrawConstants constants{};
-    MakeCameraMatrix( constants.clipFromModel, extent, camera );
+    mii::PreviewScene::MakeCameraMatrix(
+      constants.clipFromModel, { extent.width, extent.height }, camera, mii::PreviewClipSpace::Vulkan );
     const vk::DeviceSize offset{};
     commands.bindVertexBuffers( 0, 1, &m_VertexBuffer, &offset );
     commands.bindIndexBuffer( m_IndexBuffer, 0, vk::IndexType::eUint16 );

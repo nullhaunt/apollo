@@ -1,4 +1,5 @@
 #include "Mii/MiiNvnHeadRenderer.hpp"
+#include "Mii/PreviewScene.hpp"
 
 #include "Platform/Diagnostics.hpp"
 
@@ -48,89 +49,6 @@ namespace apollo::mii
       return rounded == 0 ? nullptr : aligned_alloc( alignment, rounded );
     }
 
-    struct Vec3
-    {
-      float x{};
-      float y{};
-      float z{};
-    };
-
-    [[nodiscard]] Vec3 Cross( Vec3 left, Vec3 right ) noexcept
-    {
-      return {
-        left.y * right.z - left.z * right.y, left.z * right.x - left.x * right.z, left.x * right.y - left.y * right.x };
-    }
-
-    [[nodiscard]] float Dot( Vec3 left, Vec3 right ) noexcept
-    {
-      return left.x * right.x + left.y * right.y + left.z * right.z;
-    }
-
-    [[nodiscard]] Vec3 Normalize( Vec3 value ) noexcept
-    {
-      const float inverse = 1.0f / std::sqrt( Dot( value, value ) );
-      return { value.x * inverse, value.y * inverse, value.z * inverse };
-    }
-
-    void MakeCameraMatrix( float * out, render::Extent2D extent, const PreviewCamera & input ) noexcept
-    {
-      PreviewCamera camera = input;
-      camera.Clamp();
-
-      constexpr float Pi         = 3.14159265358979323846f;
-      const float     yaw        = camera.yawDegrees * Pi / 180.0f;
-      const float     pitch      = camera.pitchDegrees * Pi / 180.0f;
-      const float     horizontal = camera.distance * std::cos( pitch );
-      const Vec3      eye{ horizontal * std::sin( yaw ),
-                      PreviewCamera::TargetHeight + camera.distance * std::sin( pitch ),
-                      horizontal * std::cos( yaw ) };
-      const Vec3      target{ 0.0f, PreviewCamera::TargetHeight, 0.0f };
-      const Vec3      forward = Normalize( { target.x - eye.x, target.y - eye.y, target.z - eye.z } );
-      const Vec3      right   = Normalize( Cross( forward, { 0.0f, 1.0f, 0.0f } ) );
-      const Vec3      up      = Cross( right, forward );
-
-      float view[ 16 ]{ right.x,
-                        up.x,
-                        -forward.x,
-                        0.0f,
-                        right.y,
-                        up.y,
-                        -forward.y,
-                        0.0f,
-                        right.z,
-                        up.z,
-                        -forward.z,
-                        0.0f,
-                        -Dot( right, eye ),
-                        -Dot( up, eye ),
-                        Dot( forward, eye ),
-                        1.0f };
-
-      const float     previewWidth = static_cast<float>( extent.width >= 1100 ? extent.width - 460 : extent.width );
-      const float     aspect       = previewWidth / static_cast<float>( extent.height );
-      const float     f            = 1.0f / std::tan( Pi / 8.0f );
-      constexpr float nearZ        = 1.0f;
-      constexpr float farZ         = 500.0f;
-      float           projection[ 16 ]{};
-      projection[ 0 ]  = f / aspect;
-      projection[ 5 ]  = f;
-      projection[ 10 ] = ( farZ + nearZ ) / ( nearZ - farZ );
-      projection[ 11 ] = -1.0f;
-      projection[ 14 ] = 2.0f * farZ * nearZ / ( nearZ - farZ );
-
-      for ( int column = 0; column < 4; ++column )
-      {
-        for ( int row = 0; row < 4; ++row )
-        {
-          float value = 0.0f;
-          for ( int term = 0; term < 4; ++term )
-          {
-            value += projection[ term * 4 + row ] * view[ column * 4 + term ];
-          }
-          out[ column * 4 + row ] = value;
-        }
-      }
-    }
   } // namespace
 
   NvnHeadRenderer::~NvnHeadRenderer() noexcept
@@ -478,26 +396,25 @@ namespace apollo::mii
 
   bool NvnHeadRenderer::CreateViewport( render::Extent2D extent ) noexcept
   {
-    const int originX = extent.width >= 1100 ? 460 : 0;
-    const int width   = static_cast<int>( extent.width ) - originX;
-    if ( width <= 0 )
+    const render::Extent2D viewport = PreviewScene::HeadViewport( extent );
+    if ( !viewport.IsValid() )
     {
       return false;
     }
 
     nn::gfx::ViewportStateInfo viewportInfo;
     viewportInfo.SetDefault();
-    viewportInfo.SetOriginX( static_cast<float>( originX ) );
+    viewportInfo.SetOriginX( 0.0f );
     viewportInfo.SetOriginY( 0.0f );
-    viewportInfo.SetWidth( static_cast<float>( width ) );
-    viewportInfo.SetHeight( static_cast<float>( extent.height ) );
+    viewportInfo.SetWidth( static_cast<float>( viewport.width ) );
+    viewportInfo.SetHeight( static_cast<float>( viewport.height ) );
 
     nn::gfx::ScissorStateInfo scissorInfo;
     scissorInfo.SetDefault();
-    scissorInfo.SetOriginX( originX );
+    scissorInfo.SetOriginX( 0 );
     scissorInfo.SetOriginY( 0 );
-    scissorInfo.SetWidth( width );
-    scissorInfo.SetHeight( static_cast<int>( extent.height ) );
+    scissorInfo.SetWidth( static_cast<int>( viewport.width ) );
+    scissorInfo.SetHeight( static_cast<int>( viewport.height ) );
 
     nn::gfx::ViewportScissorState::InfoType stateInfo;
     stateInfo.SetDefault();
@@ -587,7 +504,7 @@ namespace apollo::mii
   void NvnHeadRenderer::UpdateCamera( int backbuffer, render::Extent2D extent, const PreviewCamera & camera ) noexcept
   {
     CameraBlock * uniform = m_Cameras[ backbuffer ].Map<CameraBlock>();
-    MakeCameraMatrix( uniform->clipFromModel, extent, camera );
+    PreviewScene::MakeCameraMatrix( uniform->clipFromModel, extent, camera, PreviewClipSpace::Nvn );
     m_Cameras[ backbuffer ].Unmap();
   }
 

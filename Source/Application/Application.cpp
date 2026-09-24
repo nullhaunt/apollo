@@ -1,6 +1,7 @@
 #include "Application.hpp"
 
 #include "Core/BuildConfiguration.hpp"
+#include "Mii/PreviewScene.hpp"
 #include "Platform/Diagnostics.hpp"
 #include "Platform/Platform.hpp"
 #include "Render/RenderBudget.hpp"
@@ -197,7 +198,7 @@ namespace apollo
                             m_Presenter.IsMiiHeadReady(),
                             m_MiiPreviewCamera );
   #endif
-      const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f }, m_MiiPreviewCamera );
+      const render::Result frame = m_Presenter.PresentFrame( mii::PreviewScene::Background, m_MiiPreviewCamera );
       if ( frame == render::Result::SurfaceOutOfDate )
       {
         const render::Result recovered = RecreatePresentation( extent );
