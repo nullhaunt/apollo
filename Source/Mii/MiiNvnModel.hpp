@@ -6,6 +6,7 @@
 
 #include "Mii/MiiCatalog.hpp"
 #include "Mii/MiiNvnFaceRenderer.hpp"
+#include "Mii/MiiNvnHeadRenderer.hpp"
 #include "Mii/MiiResources.hpp"
 #include "Render/Nvn/NvnContext.hpp"
 #include "Render/RenderTelemetry.hpp"
@@ -43,6 +44,16 @@ namespace apollo::mii
     {
       return m_FaceRenderer.IsReady();
     }
+    [[nodiscard]] bool IsHeadRendererReady() const noexcept
+    {
+      return m_HeadRenderer.IsReady();
+    }
+    void ResetHeadTargets() noexcept;
+    void RecordHead( ::nvn::CommandBuffer & commands,
+                     ::nvn::Texture &       target,
+                     render::Extent2D       extent,
+                     int                    backbuffer,
+                     const PreviewCamera &  camera ) noexcept;
 
   private:
     void               InitializeGfx( render::nvn::NvnContext & context ) noexcept;
@@ -58,6 +69,7 @@ namespace apollo::mii
     nn::mii::Faceline                    m_Faceline{};
     nn::mii::Mask                        m_Mask{};
     NvnFaceRenderer                      m_FaceRenderer{};
+    NvnHeadRenderer                      m_HeadRenderer{};
     void *                               m_ResourceMemory{};
     void *                               m_ModelMemory{};
     void *                               m_PoolMemory{};

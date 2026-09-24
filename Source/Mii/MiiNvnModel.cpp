@@ -64,7 +64,10 @@ namespace apollo::mii
       return false;
     }
 
-    ( void )m_FaceRenderer.Initialize( m_GfxDevice, m_Model, m_Faceline, m_Mask );
+    if ( m_FaceRenderer.Initialize( m_GfxDevice, m_Model, m_Faceline, m_Mask ) )
+    {
+      ( void )m_HeadRenderer.Initialize( m_GfxDevice, *context.GetQueue(), m_Model, m_FaceRenderer );
+    }
 
     return true;
   }
@@ -189,7 +192,7 @@ namespace apollo::mii
     char message[ 160 ]{};
     std::snprintf( message,
                    sizeof( message ),
-                   "Mii CharModel initialized from catalog snapshot; model pool %llu bytes (head draw pending).",
+                   "Mii CharModel initialized from catalog snapshot; model pool %llu bytes.",
                    static_cast<unsigned long long>( allocatedPoolSize ) );
     diagnostics::Write( diagnostics::Level::Information, message );
 
@@ -316,8 +319,26 @@ namespace apollo::mii
     return true;
   }
 
+  void NvnModel::ResetHeadTargets() noexcept
+  {
+    m_HeadRenderer.ResetTargets();
+  }
+
+  void NvnModel::RecordHead( ::nvn::CommandBuffer & commands,
+                             ::nvn::Texture &       target,
+                             render::Extent2D       extent,
+                             int                    backbuffer,
+                             const PreviewCamera &  camera ) noexcept
+  {
+    if ( m_HeadRenderer.IsReady() )
+    {
+      ( void )m_HeadRenderer.RecordDraw( commands, target, extent, backbuffer, camera );
+    }
+  }
+
   void NvnModel::Shutdown() noexcept
   {
+    m_HeadRenderer.Shutdown();
     m_FaceRenderer.Shutdown();
 
     if ( m_Mask.IsInitialized() )

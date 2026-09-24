@@ -39,6 +39,15 @@ namespace apollo::debug
 
       if ( width >= 1100.0f )
       {
+#if defined( APOLLO_PLATFORM_NX )
+        constexpr float panelWidth        = 420.0f;
+        const float     diagnosticsHeight = std::min( 200.0f, height * 0.3f );
+        const float     miiY              = margin + diagnosticsHeight + gap;
+        return { ImVec2( margin, margin ),
+                 ImVec2( panelWidth, diagnosticsHeight ),
+                 ImVec2( margin, miiY ),
+                 ImVec2( panelWidth, std::min( 440.0f, height - miiY - margin ) ) };
+#else
         constexpr float diagnosticsWidth = 420.0f;
         const float     miiX             = margin + diagnosticsWidth + gap;
 
@@ -46,6 +55,7 @@ namespace apollo::debug
                  ImVec2( diagnosticsWidth, std::min( 360.0f, height - 2.0f * margin ) ),
                  ImVec2( miiX, margin ),
                  ImVec2( std::min( 620.0f, width - miiX - margin ), std::min( 440.0f, height - 2.0f * margin ) ) };
+#endif
       }
 
       const float panelWidth        = width - 2.0f * margin;
@@ -142,6 +152,7 @@ namespace apollo::debug
                             bool                       nxMiiModelReady,
                             bool                       nxFaceSourcesReady,
                             bool                       nxFaceTexturesReady,
+                            bool                       nxHeadRendererReady,
                             mii::PreviewCamera &       previewCamera ) noexcept
   {
     if ( !m_Ready )
@@ -164,8 +175,14 @@ namespace apollo::debug
     ImGui::DockSpaceOverViewport( 0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode );
 
     DrawDiagnosticsWindow( extent );
-    DrawMiiWindow(
-      extent, miiCatalog, miiResources, nxMiiModelReady, nxFaceSourcesReady, nxFaceTexturesReady, previewCamera );
+    DrawMiiWindow( extent,
+                   miiCatalog,
+                   miiResources,
+                   nxMiiModelReady,
+                   nxFaceSourcesReady,
+                   nxFaceTexturesReady,
+                   nxHeadRendererReady,
+                   previewCamera );
     ImGui::Render();
 
     if ( !m_FirstFrameReported )
@@ -260,6 +277,7 @@ namespace apollo::debug
                                bool                       nxMiiModelReady,
                                bool                       nxFaceSourcesReady,
                                bool                       nxFaceTexturesReady,
+                               bool                       nxHeadRendererReady,
                                mii::PreviewCamera &       previewCamera ) noexcept
   {
     const WindowLayout layout = GetWindowLayout( extent );
@@ -297,13 +315,19 @@ namespace apollo::debug
     }
 
 #if defined( APOLLO_PLATFORM_NX )
-    ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized (draw pending)" : "unavailable" );
+    ImGui::Text( "NVN Mii model: %s", nxMiiModelReady ? "initialized" : "unavailable" );
     ImGui::Text( "Mii face sources: %s", nxFaceSourcesReady ? "ready" : "unavailable" );
-    ImGui::Text( "Mii face textures: %s", nxFaceTexturesReady ? "generated (head draw pending)" : "unavailable" );
+    ImGui::Text( "Mii face textures: %s", nxFaceTexturesReady ? "generated" : "unavailable" );
+    ImGui::Text( "Mii head renderer: %s", nxHeadRendererReady ? "ready" : "unavailable" );
+    if ( nxHeadRendererReady )
+    {
+      ImGui::TextWrapped( "Preview uses catalog #001; selection shows details only." );
+    }
 #else
     ( void )nxMiiModelReady;
     ( void )nxFaceSourcesReady;
     ( void )nxFaceTexturesReady;
+    ( void )nxHeadRendererReady;
 #endif
 
     ImGui::Separator();
@@ -377,7 +401,11 @@ namespace apollo::debug
 
   void DebugUi::DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept
   {
-    ImGui::TextUnformatted( "Head draw pending." );
+#if defined( APOLLO_PLATFORM_NX )
+    ImGui::TextUnformatted( "Head preview" );
+#else
+    ImGui::TextUnformatted( "Camera controls" );
+#endif
 
     if ( ImGui::Button( "Front" ) )
     {

@@ -35,8 +35,11 @@
   <ItemGroup>
     <None Include="Shaders\IndexedQuad.hlsl" />
     <None Include="Shaders\DebugUi.hlsl" />
+    <None Include="Shaders\MiiHead.glsl" />
+    <None Include="Shaders\MiiHead.xml" />
     <None Include="Tools\BuildIndexedQuadShader.ps1" />
     <None Include="Tools\BuildDebugUiShader.ps1" />
+    <None Include="Tools\BuildMiiHeadShader.ps1" />
     <None Include="External\imgui\LICENSE.txt" />
     <None Include="External\imgui\APOLLO-PROVENANCE.md" />
   </ItemGroup>
@@ -62,6 +65,9 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Source\Mii\MiiNvnFaceRenderer.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Source\Mii\MiiNvnHeadRenderer.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'=='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Source\Main.cpp" />
@@ -112,6 +118,7 @@
     <ClInclude Include="Source\Mii\PreviewCamera.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnModel.hpp" />
     <ClInclude Include="Source\Mii\MiiNvnFaceRenderer.hpp" />
+    <ClInclude Include="Source\Mii\MiiNvnHeadRenderer.hpp" />
     <ClInclude Include="Source\Platform\Diagnostics.hpp" />
     <ClInclude Include="Source\Platform\Platform.hpp" />
     <ClInclude Include="Source\Platform\Windows\WindowsWindow.hpp" />
@@ -381,6 +388,12 @@
     <MakeDir Directories="$(NintendoSdkContentDirectory)Platform\shader" />
     <Copy SourceFiles="$(NintendoSdkRoot)Resources\Mii\NX-NXFP2-a64\shader\TextureShader.bnsh"
           DestinationFiles="$(NintendoSdkContentDirectory)Platform\shader\TextureShader.bnsh" />
+  </Target>
+  <Target Name="BuildMiiHeadShader" BeforeTargets="PrepareForBuild"
+          Condition="'$(Platform)'=='NX64'"
+          Inputs="$(ProjectDir)Shaders\MiiHead.glsl;$(ProjectDir)Shaders\MiiHead.xml;$(ProjectDir)Tools\BuildMiiHeadShader.ps1;$(MSBuildProjectFullPath)"
+          Outputs="$(NintendoSdkContentDirectory)Platform\shader\MiiHead.bnsh">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Tools\BuildMiiHeadShader.ps1&quot; -Source &quot;$(ProjectDir)Shaders\MiiHead.glsl&quot; -Variation &quot;$(ProjectDir)Shaders\MiiHead.xml&quot; -Output &quot;$(NintendoSdkContentDirectory)Platform\shader\MiiHead.bnsh&quot; -NintendoSdkRoot &quot;$(NintendoSdkRoot)\.&quot;" />
   </Target>
   <Target Name="BuildIndexedQuadShaders" BeforeTargets="ClCompile"
           Inputs="$(ProjectDir)Shaders\IndexedQuad.hlsl;$(ProjectDir)Tools\BuildIndexedQuadShader.ps1"

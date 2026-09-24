@@ -1,5 +1,7 @@
 #include "Render/Nvn/NvnPresenter.hpp"
 
+#include "Mii/MiiNvnModel.hpp"
+
 #include "Platform/Diagnostics.hpp"
 
 #if !defined( APOLLO_BUILD_RELEASE )
@@ -132,7 +134,7 @@ namespace apollo::render::nvn
     return true;
   }
 
-  Result NvnPresenter::PresentFrame() noexcept
+  Result NvnPresenter::PresentFrame( mii::NvnModel & model, const mii::PreviewCamera & camera ) noexcept
   {
     if ( !m_Ready )
     {
@@ -179,6 +181,7 @@ namespace apollo::render::nvn
     commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + sizeof( ::nvn::CounterData ) );
 #endif
     m_IndexedQuad.RecordDraw( commands, m_Extent );
+    model.RecordHead( commands, *target, m_Extent, textureIndex, camera );
 #if !defined( APOLLO_BUILD_RELEASE )
     commands.ReportCounter( ::nvn::CounterType::TIMESTAMP, counterBase + 2 * sizeof( ::nvn::CounterData ) );
 #endif

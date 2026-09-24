@@ -15,6 +15,12 @@
 
 #include <nn/vi.h>
 
+namespace apollo::mii
+{
+  class NvnModel;
+  struct PreviewCamera;
+} // namespace apollo::mii
+
 namespace apollo::render::nvn
 {
   class NvnPresenter final
@@ -30,7 +36,7 @@ namespace apollo::render::nvn
 
     [[nodiscard]] bool   Initialize( NvnContext & context, Extent2D extent ) noexcept;
     [[nodiscard]] bool   Resize( Extent2D extent ) noexcept;
-    [[nodiscard]] Result PresentFrame() noexcept;
+    [[nodiscard]] Result PresentFrame( mii::NvnModel & model, const mii::PreviewCamera & camera ) noexcept;
     void                 Shutdown() noexcept;
 
     [[nodiscard]] Extent2D GetExtent() const noexcept;

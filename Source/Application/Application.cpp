@@ -189,7 +189,7 @@ namespace apollo
 
   #if !defined( APOLLO_BUILD_RELEASE )
       m_DebugUi.BeginFrame(
-        { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false, false, false, m_MiiPreviewCamera );
+        { extent.width, extent.height }, m_MiiCatalog, m_MiiResources, false, false, false, false, m_MiiPreviewCamera );
   #endif
       const render::Result frame = m_Presenter.PresentFrame( { 0.08f, 0.12f, 0.20f, 1.0f } );
       if ( frame == render::Result::SurfaceOutOfDate )
@@ -229,6 +229,10 @@ namespace apollo
 
       const bool             handheld = nn::oe::GetOperationMode() == nn::oe::OperationMode_Handheld;
       const render::Extent2D extent   = handheld ? render::Extent2D{ 1280, 720 } : render::Extent2D{ 1920, 1080 };
+      if ( m_NvnPresenter.GetExtent().width != extent.width || m_NvnPresenter.GetExtent().height != extent.height )
+      {
+        m_MiiModel.ResetHeadTargets();
+      }
       if ( !m_NvnPresenter.Resize( extent ) )
       {
         diagnostics::Write( diagnostics::Level::Error, "NVN presentation resize failed." );
@@ -242,9 +246,10 @@ namespace apollo
                             m_MiiModel.IsReady(),
                             m_MiiModel.AreFaceSourcesReady(),
                             m_MiiModel.AreFaceTexturesReady(),
+                            m_MiiModel.IsHeadRendererReady(),
                             m_MiiPreviewCamera );
   #endif
-      if ( m_NvnPresenter.PresentFrame() != render::Result::Success )
+      if ( m_NvnPresenter.PresentFrame( m_MiiModel, m_MiiPreviewCamera ) != render::Result::Success )
       {
         diagnostics::Write( diagnostics::Level::Error, "NVN presentation failed." );
         Shutdown();

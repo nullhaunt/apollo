@@ -32,6 +32,18 @@ namespace apollo::mii
     {
       return m_TexturesReady;
     }
+    [[nodiscard]] nn::gfx::DescriptorPool * TextureDescriptors() noexcept
+    {
+      return &m_TextureDescriptors;
+    }
+    [[nodiscard]] nn::gfx::DescriptorPool * SamplerDescriptors() noexcept
+    {
+      return &m_SamplerDescriptors;
+    }
+    [[nodiscard]] const nn::gfx::DescriptorSlot & SamplerSlot() const noexcept
+    {
+      return m_SamplerSlot;
+    }
 
   private:
     [[nodiscard]] bool LoadShaderFile() noexcept;

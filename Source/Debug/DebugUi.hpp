@@ -33,6 +33,7 @@ namespace apollo::debug
                      bool                       nxMiiModelReady,
                      bool                       nxFaceSourcesReady,
                      bool                       nxFaceTexturesReady,
+                     bool                       nxHeadRendererReady,
                      mii::PreviewCamera &       previewCamera ) noexcept;
     void Shutdown() noexcept;
 
@@ -44,6 +45,7 @@ namespace apollo::debug
                         bool                       nxMiiModelReady,
                         bool                       nxFaceSourcesReady,
                         bool                       nxFaceTexturesReady,
+                        bool                       nxHeadRendererReady,
                         mii::PreviewCamera &       previewCamera ) noexcept;
     void DrawMiiCatalog( const mii::Catalog & miiCatalog ) noexcept;
     void DrawMiiPreviewCamera( mii::PreviewCamera & previewCamera ) noexcept;
