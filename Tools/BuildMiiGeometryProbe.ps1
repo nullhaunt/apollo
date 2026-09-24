@@ -12,7 +12,9 @@ $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sampleRoot = Join-Path $SdkRoot 'Samples\Sources\Applications\MiiSimple'
 $sourcePath = Join-Path $sampleRoot 'MiiSimple-spec.Generic.autogen.cpp'
 $projectPath = Join-Path $sampleRoot 'MiiSimple-Generic.autogen.vcxproj'
-$includePath = (Join-Path $PSScriptRoot 'MiiGeometryProbe.inl').Replace('\', '/')
+$geometryInclude = (Join-Path $PSScriptRoot 'MiiGeometryProbe.inl').Replace('\', '/')
+$textureInclude = (Join-Path $PSScriptRoot 'MiiTextureProbe.inl').Replace('\', '/')
+$staticInclude = (Join-Path $PSScriptRoot 'MiiStaticTextureProbe.inl').Replace('\', '/')
 $outputRoot = Join-Path $projectRoot 'Build\MiiGeometryProbe'
 $generatedSource = Join-Path $outputRoot 'MiiSimple-probe.cpp'
 $generatedProject = Join-Path $outputRoot 'MiiSimple-probe.vcxproj'
@@ -29,18 +31,34 @@ if (!(Test-Path -LiteralPath $msbuild)) {
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 
 $source = Get-Content -LiteralPath $sourcePath -Raw
+$textureResource = 'MII_RESOURCE_TEXTURE_PREFIX "MidSRGB.dat"'
+if (!$source.Contains($textureResource)) {
+  throw 'The sample texture resource path has changed; review the SDK sample before continuing.'
+}
+
+$source = $source.Replace($textureResource, 'MII_RESOURCE_TEXTURE_PREFIX "LowSRGB.dat"')
 $hook = '    SetupConstantBuffers();'
 if ($source.IndexOf($hook, [StringComparison]::Ordinal) -ne $source.LastIndexOf($hook, [StringComparison]::Ordinal)) {
   throw 'The sample setup hook has changed; review the SDK sample before continuing.'
 }
 
 $entryMarker = 'extern "C" void nnMain()'
-if (!$source.Contains($hook) -or !$source.Contains($entryMarker)) {
+$charInfoHook = '    LoadCharInfo();'
+if (!$source.Contains($hook) -or !$source.Contains($entryMarker) -or !$source.Contains($charInfoHook)) {
   throw 'The sample entry point has changed; review the SDK sample before continuing.'
 }
 
-$source = $source.Replace($entryMarker, "#include `"$includePath`"`r`n`r`n$entryMarker")
-$source = $source.Replace($hook, "$hook`r`n    ApolloExportMiiGeometry();")
+$includes = "#include `"$geometryInclude`"`r`n#include `"$textureInclude`"`r`n#include `"$staticInclude`"`r`n`r`n"
+$source = $source.Replace($entryMarker, "$includes$entryMarker")
+$selectDefault = "$charInfoHook`r`n    if (!ApolloSelectDefaultMii())`r`n    {`r`n        std::abort();`r`n    }"
+$source = $source.Replace($charInfoHook, $selectDefault)
+$exportHook = @'
+    if (!ApolloExportMiiGeometry() || !ApolloExportGeneratedTextures() || !ApolloExportViewTextures())
+    {
+        std::abort();
+    }
+'@
+$source = $source.Replace($hook, "$hook`r`n$exportHook")
 Set-Content -LiteralPath $generatedSource -Value $source -NoNewline
 
 $project = Get-Content -LiteralPath $projectPath -Raw

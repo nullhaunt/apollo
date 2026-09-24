@@ -30,6 +30,53 @@ namespace
   static_assert( sizeof( ApolloGeometryHeader ) == 16 );
   static_assert( sizeof( ApolloGeometryPart ) == 64 );
 
+  bool ApolloSelectDefaultMii()
+  {
+    static_assert( sizeof( nn::mii::CharInfo ) == 88 );
+
+    nn::mii::Database database;
+    if ( !database.Initialize().IsSuccess() )
+    {
+      return false;
+    }
+
+    nn::mii::CharInfoElement elements[ 16 ]{};
+    int                      count   = 0;
+    const bool               fetched = database.Get( &count, elements, 16, nn::mii::SourceFlag_Default ).IsSuccess();
+    database.Finalize();
+
+    if ( !fetched || count <= 0 || count > 16 )
+    {
+      return false;
+    }
+
+    for ( int index = 0; index < count; ++index )
+    {
+      if ( nn::mii::CharInfoAccessor( elements[ index ].info ).IsValid() )
+      {
+        g_CharInfo = elements[ index ].info;
+
+        std::FILE * file = nullptr;
+        if ( fopen_s( &file, "MiiCharInfoProbe.bin", "wb" ) != 0 || file == nullptr )
+        {
+          return false;
+        }
+
+        const bool saved = std::fwrite( &g_CharInfo, sizeof( g_CharInfo ), 1, file ) == 1;
+        if ( std::fclose( file ) != 0 || !saved )
+        {
+          std::remove( "MiiCharInfoProbe.bin" );
+          return false;
+        }
+
+        std::printf( "Apollo Mii probe selected Generic default %d of %d.\n", index, count );
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   bool ApolloWriteBuffer( std::FILE * file, const nn::gfx::Buffer * buffer, size_t size )
   {
     if ( size == 0 )
